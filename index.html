@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CORS Playground — SOP・CORS・プリフライト実験場</title>
+
+  <!-- Security Headers -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    connect-src 'self' https://httpbin.org https://raw.githubusercontent.com https://example.com;
+    img-src 'self' data:;
+    font-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    upgrade-insecure-requests;
+  " />
+  <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()" />
+
+  <!-- Prevent favicon 404 error -->
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <h1>CORS Playground</h1>
+      <p class="subtitle">同一オリジン・CORS・プリフライトを見て、試して、理解する教育ツールです</p>
+    </div>
+    <div class="header-actions">
+      <button id="themeToggle" class="btn" aria-label="テーマ切替">🌙</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tab-basics">📚 基礎知識</button>
+    <button class="tab-btn" data-tab="tab-sop">🧪 SOP実験室</button>
+    <button class="tab-btn" data-tab="tab-simulator">⚙️ CORSシミュレーター</button>
+    <button class="tab-btn" data-tab="tab-live">🚀 ライブFetch</button>
+  </nav>
+
+  <main class="tab-panels">
+    <!-- ============ 基礎知識 ============ -->
+    <section id="tab-basics" class="tab-panel active">
+      <div class="learning-objectives">
+        <h3><span class="icon-target"></span>このタブで学ぶこと</h3>
+        <ul>
+          <li>Webページの構造を表す<strong>DOM</strong>とは何か</li>
+          <li>Webサイトを識別する<strong>オリジン</strong>の仕組み</li>
+          <li><strong>iframe</strong>で別のページを埋め込む方法</li>
+          <li>なぜブラウザーに<strong>セキュリティ制限</strong>が必要なのか</li>
+        </ul>
+      </div>
+
+      <div class="panel-grid single-column">
+        <!-- DOM解説 -->
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('basics-dom')">
+            <h2>📄 DOM（Document Object Model）とは？</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="basics-dom" class="accordion-content">
+          <p>
+            <strong>DOM</strong>は、Webページの中身を「木構造」として表現したものです。
+            JavaScriptから「ページのテキストを変更する」「ボタンを追加する」などの操作ができるのは、DOMのおかげです。
+          </p>
+
+          <div class="visual-box dom-tree">
+            <div class="visual-title">DOM ツリーの例</div>
+            <div class="tree-structure">
+              <div class="tree-node root">
+                <span class="node-tag">&lt;html&gt;</span>
+                <div class="tree-children">
+                  <div class="tree-node">
+                    <span class="node-tag">&lt;head&gt;</span>
+                    <div class="tree-children">
+                      <div class="tree-node leaf">
+                        <span class="node-tag">&lt;title&gt;</span> マイページ
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tree-node">
+                    <span class="node-tag">&lt;body&gt;</span>
+                    <div class="tree-children">
+                      <div class="tree-node leaf">
+                        <span class="node-tag">&lt;h1&gt;</span> ようこそ
+                      </div>
+                      <div class="tree-node leaf">
+                        <span class="node-tag">&lt;p&gt;</span> これは段落です
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="key-concept">
+            <strong>💡 重要：</strong> JavaScriptは同じオリジン内のDOMしか操作できません。
+            これが<strong>同一オリジンポリシー（SOP：Same-Origin Policy）</strong>の基本です。
+          </div>
+          </div>
+        </div>
+
+        <!-- オリジン解説 -->
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('basics-origin')">
+            <h2>🌐 オリジン（Origin）とは？</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="basics-origin" class="accordion-content">
+          <p>
+            <strong>オリジン</strong>は、Webサイトを識別するための「住所」のようなものです。
+            次の<strong>3つの要素</strong>の組み合わせで決まります。
+          </p>
+
+          <div class="visual-box origin-breakdown">
+            <div class="visual-title">オリジンの構成要素</div>
+            <div class="origin-parts">
+              <div class="origin-part scheme">
+                <div class="part-label">スキーム</div>
+                <div class="part-value">https://</div>
+                <div class="part-desc">通信プロトコル</div>
+              </div>
+              <div class="origin-part host">
+                <div class="part-label">ホスト</div>
+                <div class="part-value">example.com</div>
+                <div class="part-desc">ドメイン名</div>
+              </div>
+              <div class="origin-part port">
+                <div class="part-label">ポート</div>
+                <div class="part-value">:443</div>
+                <div class="part-desc">接続先番号</div>
+              </div>
+            </div>
+
+            <!-- URL全体での区切り表示 -->
+            <div class="url-anatomy">
+              <div class="url-anatomy-title">📍 URL全体での区切り</div>
+              <div class="url-display-wrapper">
+                <div class="url-display">
+                  <span class="url-origin">https://example.com:443</span><span class="url-path">/path/to/index.html</span>
+                  <div class="url-arrows">
+                    <div class="single-arrow origin-arrow" style="left: 30%;">↑</div>
+                    <div class="single-arrow path-arrow" style="left: 73%;">↑</div>
+                  </div>
+                </div>
+              </div>
+              <div class="url-labels">
+                <div class="url-label origin-label">
+                  <div class="label-text"><strong>オリジン</strong>（二重下線部分）</div>
+                  <div class="label-note">この3要素の組み合わせ</div>
+                </div>
+                <div class="url-label path-label">
+                  <div class="label-text"><strong>パス</strong>（下線部分）</div>
+                  <div class="label-note">オリジンには含まれない</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 用語解説 -->
+            <div class="terminology-box">
+              <h4>📖 重要な用語</h4>
+              <div class="term-grid">
+                <div class="term-item same-origin">
+                  <div class="term-title">
+                    <span class="term-icon">✓</span>
+                    <strong>同一オリジン</strong>
+                    <span class="term-en">(Same-Origin)</span>
+                  </div>
+                  <div class="term-definition">
+                    2つのURLの<strong>オリジンが完全に一致する</strong>状態。
+                    スキーム・ホスト・ポートの<strong>3要素すべて</strong>が同じであること。
+                  </div>
+                  <div class="term-example">
+                    例：<code>https://example.com/page1</code> と <code>https://example.com/page2</code>
+                  </div>
+                </div>
+                <div class="term-item cross-origin">
+                  <div class="term-title">
+                    <span class="term-icon">✗</span>
+                    <strong>クロスオリジン</strong>
+                    <span class="term-en">(Cross-Origin)</span>
+                  </div>
+                  <div class="term-definition">
+                    2つのURLの<strong>オリジンが異なる</strong>状態。
+                    スキーム・ホスト・ポートのうち<strong>1つでも違う</strong>と、クロスオリジンになる。
+                  </div>
+                  <div class="term-example">
+                    例：<code>https://example.com</code> と <code>http://example.com</code>（スキーム違い）
+                  </div>
+                </div>
+              </div>
+              <div class="key-concept">
+                <strong>💡 覚えておこう：</strong>
+                同一オリジン間では自由にアクセスできますが、<strong>クロスオリジン間ではブラウザーが制限をかけます</strong>。
+                これが<strong>同一オリジンポリシー（SOP：Same-Origin Policy）</strong>の基本原則です。
+              </div>
+            </div>
+          </div>
+
+          <div class="visual-box origin-comparison">
+            <div class="visual-title">オリジンの比較例</div>
+
+            <p class="comparison-note">
+              2つのURLを比較して、「同一オリジン」か「クロスオリジン（異なるオリジン）」かを判定します。
+            </p>
+
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>アクセス元</th>
+                  <th>アクセス先</th>
+                  <th>判定</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- 同一オリジンの例 -->
+                <tr class="same-row">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://example.com/page2</code></td>
+                  <td><span class="badge success">✓ 同一</span></td>
+                  <td>パスが違うだけ（<strong>/page1 → /page2</strong>）</td>
+                </tr>
+                <tr class="same-row">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://example.com/page1?id=123</code></td>
+                  <td><span class="badge success">✓ 同一</span></td>
+                  <td>クエリパラメーターは<strong>オリジンに含まれない</strong></td>
+                </tr>
+                <tr class="same-row">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://example.com/page1#section</code></td>
+                  <td><span class="badge success">✓ 同一</span></td>
+                  <td>フラグメント（#以降）は<strong>オリジンに含まれない</strong></td>
+                </tr>
+                <tr class="same-row">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://example.com:443/admin</code></td>
+                  <td><span class="badge success">✓ 同一</span></td>
+                  <td>ポート<strong>:443はhttpsのデフォルト</strong>（省略可）</td>
+                </tr>
+
+                <!-- 異なるオリジンの例 -->
+                <tr class="diff-row diff-scheme">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>http://example.com/page1</code></td>
+                  <td><span class="badge error">✗ 異なる</span></td>
+                  <td><span class="diff-highlight scheme">スキーム違い</span>（https → http）</td>
+                </tr>
+                <tr class="diff-row diff-host">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://sub.example.com/page1</code></td>
+                  <td><span class="badge error">✗ 異なる</span></td>
+                  <td><span class="diff-highlight host">ホスト違い</span>（example.com → sub.example.com）</td>
+                </tr>
+                <tr class="diff-row diff-host">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://example.org/page1</code></td>
+                  <td><span class="badge error">✗ 異なる</span></td>
+                  <td><span class="diff-highlight host">ホスト違い</span>（.com → .org）</td>
+                </tr>
+                <tr class="diff-row diff-port">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>https://example.com:8080/page1</code></td>
+                  <td><span class="badge error">✗ 異なる</span></td>
+                  <td><span class="diff-highlight port">ポート違い</span>（:443 → :8080）</td>
+                </tr>
+                <tr class="diff-row diff-multiple">
+                  <td><code>https://example.com/page1</code></td>
+                  <td><code>http://other.com:8080/page1</code></td>
+                  <td><span class="badge error">✗ 異なる</span></td>
+                  <td><span class="diff-highlight multiple">すべて違う</span>（スキーム・ホスト・ポート）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="muted small">
+            ※ ポート番号は省略されることがあります（https は 443、http は 80 がデフォルト）
+          </p>
+          </div>
+        </div>
+
+        <!-- iframe解説 -->
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('basics-iframe')">
+            <h2>🖼️ iframe（インラインフレーム）とは？</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="basics-iframe" class="accordion-content">
+          <p>
+            <strong>iframe</strong>は、Webページの中に「別のWebページ」を埋め込むための仕組みです。
+            YouTubeの動画埋め込みや、Google Mapsの地図表示でよく使われます。
+          </p>
+
+          <div class="visual-box iframe-diagram">
+            <div class="visual-title">iframeの親子関係</div>
+            <div class="parent-page">
+              <div class="page-label">親ページ（https://mysite.com）</div>
+              <div class="page-content">
+                <p>これは親ページの内容です</p>
+                <div class="iframe-embed">
+                  <div class="iframe-label">iframe（埋め込み）</div>
+                  <div class="child-page">
+                    <div class="page-label-small">子ページ（https://other.com）</div>
+                    <p>これは別サイトの内容</p>
+                  </div>
+                </div>
+                <p>親ページの続き</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="key-concept">
+            <strong>⚠️ セキュリティ上の制約：</strong>
+            親ページと子ページ（iframe）の<strong>オリジンが異なる場合</strong>、
+            親は子のDOMを読み書きできません。逆も同様です。
+          </div>
+          </div>
+        </div>
+
+        <!-- セキュリティモデル -->
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('basics-security')">
+            <h2>🔒 なぜブラウザーにセキュリティ制限が必要？</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="basics-security" class="accordion-content">
+          <p>
+            もしセキュリティ制限がなかったら...
+          </p>
+
+          <div class="visual-box attack-scenario">
+            <div class="visual-title danger">❌ 危険なシナリオ（制限がない場合）</div>
+            <div class="attack-steps">
+              <div class="attack-step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  フィッシングなどで誘導された結果、あなたがevil.com（悪意あるサイト）を開く
+                </div>
+              </div>
+              <div class="arrow-down">↓</div>
+              <div class="attack-step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  evil.comが裏でbank.com（銀行サイト）をiframeで読み込む
+                </div>
+              </div>
+              <div class="arrow-down">↓</div>
+              <div class="attack-step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  evil.comのJavaScriptが銀行サイトのDOMを読み取り、<strong>口座情報を盗む</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="visual-box protection-scenario">
+            <div class="visual-title safe">✅ 実際の動作（SOP保護あり）</div>
+            <div class="protection-steps">
+              <div class="protection-step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  あなたがevil.comを開く
+                </div>
+              </div>
+              <div class="arrow-down">↓</div>
+              <div class="protection-step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  evil.comがbank.comをiframeで読み込もうとする
+                </div>
+              </div>
+              <div class="arrow-down">↓</div>
+              <div class="protection-step highlight">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <strong>ブラウザーがブロック！</strong><br>
+                  「オリジンが異なるため、DOMアクセスは拒否されました」
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p>
+            このように、<strong>同一オリジンポリシー（SOP：Same-Origin Policy）</strong>はWebの安全を守る基本的な仕組みです。
+            次のタブで、実際にこの動作を体験してみましょう！
+          </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SOP Lab ============ -->
+    <section id="tab-sop" class="tab-panel">
+      <!-- 学習目標 -->
+      <div class="learning-objectives">
+        <h3><span class="icon-target"></span>このタブで学ぶこと</h3>
+        <ul>
+          <li><strong>同一オリジンポリシー（SOP）</strong>がブラウザーでどう働くか</li>
+          <li>なぜ異なるオリジンの<strong>DOM（ページの中身）</strong>にアクセスできないのか</li>
+          <li><strong>postMessage</strong>を使った安全なデータのやり取り方法</li>
+          <li>セキュリティの「壁」が実際に存在することを体験</li>
+        </ul>
+      </div>
+
+      <div class="panel-grid single-column">
+        <div class="card">
+          <h2>SOP 実験</h2>
+
+          <!-- ヘルプトグルボタン -->
+          <button class="help-toggle" onclick="toggleHelp('sop-help')">【復習】SOPとは？</button>
+
+          <!-- ヘルプパネル -->
+          <div id="sop-help" class="help-panel">
+            <h4><span class="icon-info"></span> 同一オリジンポリシー（SOP）とは？</h4>
+            <p>
+              <strong>同一オリジンポリシー（SOP：Same-Origin Policy）</strong>は、Webブラウザーの基本的なセキュリティルールです。
+              「<span class="term">オリジン<span class="tooltip">スキーム（http/https）、ホスト（ドメイン名）、ポート番号の3つの組み合わせ</span></span>」が異なるページ同士は、
+              お互いのページの中身（DOM）を勝手に読んだり書き換えたりできません。
+            </p>
+            <p>
+              <strong>なぜ重要？</strong> 例えば、悪意あるサイトがあなたの銀行サイトの情報を盗もうとしても、SOPがあるから防げます。
+            </p>
+          </div>
+
+          <p class="muted">
+            ここではiframeとsandbox属性を使って、<strong>同一オリジン</strong>と<strong>クロスオリジン</strong>の状況を意図的に作り出し、
+            SOPによる「<strong>見えるけど触れない</strong>」という制約を体感します。
+          </p>
+          <p class="muted small">
+            ※ sandbox属性：iframeを隔離環境で実行する仕組み。allow-same-originを付けないと、同じサイトでもクロスオリジン扱いになります。
+          </p>
+
+          <div class="experiment-steps">
+            <!-- ステップ1: 同一オリジン -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">1</span>
+                <h3>同一オリジンの実験（成功する例）</h3>
+              </div>
+              <p class="step-description">
+                このiframeは親ページと<strong>同じオリジン</strong>です。<br />
+                「DOMを読む」ボタンを押すと、iframe内のDOM（タイトル）にアクセスできます。
+                → <span style="color:var(--success); font-weight:700;">✓ 成功します</span>
+              </p>
+
+              <div class="parent-child-demo">
+                <div class="parent-page-wrapper">
+                  <div class="parent-page-header">
+                    <span class="indicator-badge parent">👆 親ページ（このページ）</span>
+                    <div class="url-display-inline">
+                      <span class="url-label-inline">URL:</span>
+                      <code class="url-value" id="parentUrl1">https://example.com/cors-playground/</code>
+                    </div>
+                  </div>
+                  <p class="parent-page-text">ここは親ページです。下のiframeを埋め込んでいます。</p>
+
+                  <div class="iframe-embed">
+                    <div class="frame-col embedded">
+                      <div class="frame-head">
+                        <span class="indicator-badge child">👇 子ページ（iframe内に埋め込まれている）</span>
+                        <div class="url-display-inline">
+                          <span class="url-label-inline">URL:</span>
+                          <code class="url-value" id="childUrl1">https://example.com/cors-playground/labs/iframe-safe.html</code>
+                        </div>
+                      </div>
+                      <div class="origin-comparison-inline">
+                        <span class="comparison-result same">✓ 同一オリジン</span>
+                        <span class="comparison-detail">（両方とも <code>https://example.com</code>）</span>
+                      </div>
+                      <iframe id="frameSafe" src="labs/iframe-safe.html"></iframe>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="experiment-action">
+                  <p class="action-description">親ページから子ページのDOMにアクセスしてみます：</p>
+                  <div class="frame-actions">
+                    <button id="btnReadSafe" class="btn">DOMを読む</button>
+                    <span id="safeResult" class="result-tag"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ステップ2: sandbox -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">2</span>
+                <h3>sandboxの実験（失敗する例）</h3>
+              </div>
+              <p class="step-description">
+                このiframeにはsandbox属性がついており、強制的に<strong>クロスオリジン扱い</strong>にしています。<br />
+                「DOMを読む（失敗を見る）」ボタンを押すと、ブラウザーがアクセスをブロックします。
+                → <span style="color:var(--error); font-weight:700;">✗ 失敗します</span>
+              </p>
+
+              <div class="parent-child-demo">
+                <div class="parent-page-wrapper">
+                  <div class="parent-page-header">
+                    <span class="indicator-badge parent">👆 親ページ（このページ）</span>
+                    <div class="url-display-inline">
+                      <span class="url-label-inline">URL:</span>
+                      <code class="url-value" id="parentUrl2">https://example.com/cors-playground/</code>
+                    </div>
+                  </div>
+                  <p class="parent-page-text">ここは親ページです。下のiframeを埋め込んでいます。</p>
+
+                  <div class="iframe-embed">
+                    <div class="frame-col embedded">
+                      <div class="frame-head">
+                        <span class="indicator-badge child">👇 子ページ（iframe内に埋め込まれている・sandbox）</span>
+                        <div class="url-display-inline">
+                          <span class="url-label-inline">URL:</span>
+                          <code class="url-value" id="childUrl2">https://example.com/cors-playground/labs/iframe-sandboxed.html</code>
+                        </div>
+                      </div>
+                      <div class="origin-comparison-inline">
+                        <span class="comparison-result different">✗ クロスオリジン</span>
+                        <span class="comparison-detail">（sandbox属性により異なるオリジン扱い）</span>
+                      </div>
+                      <iframe id="frameSandboxed" src="labs/iframe-sandboxed.html"
+                              sandbox="allow-scripts allow-forms"></iframe>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="experiment-action">
+                  <p class="action-description">親ページから子ページのDOMにアクセスしてみます：</p>
+                  <div class="frame-actions">
+                    <button id="btnReadSandboxed" class="btn">DOMを読む（失敗を見る）</button>
+                    <span id="sandboxedResult" class="result-tag"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ステップ3: 比較 -->
+            <div class="experiment-step comparison">
+              <div class="step-header">
+                <span class="step-number">3</span>
+                <h3>結果を比較してみよう</h3>
+              </div>
+              <p class="step-description">
+                同じページに埋め込まれたiframeでも、<strong>sandbox属性とallow-same-originの組み合わせ</strong>によって、
+                ブラウザーの挙動が大きく変わります。
+              </p>
+
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th>iframe種別</th>
+                    <th>sandbox属性</th>
+                    <th>allow-same-origin</th>
+                    <th>オリジン判定</th>
+                    <th>DOMアクセス</th>
+                    <th>理由</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="same-row">
+                    <td><strong>通常のiframe</strong></td>
+                    <td><span class="badge neutral">なし</span></td>
+                    <td>-</td>
+                    <td><span class="badge success">✓ 同一オリジン</span></td>
+                    <td><span class="badge success">✓ 可能</span></td>
+                    <td>親子が同じオリジンなので制限なし</td>
+                  </tr>
+                  <tr class="diff-row">
+                    <td><strong>sandboxed iframe</strong><br><small>（今回の実験）</small></td>
+                    <td><span class="badge error">あり</span></td>
+                    <td><span class="badge error">なし</span></td>
+                    <td><span class="badge error">✗ クロスオリジン扱い</span></td>
+                    <td><span class="badge error">✗ 不可</span></td>
+                    <td>sandbox属性により強制的に隔離され、同じサイトでもクロスオリジン扱いになる</td>
+                  </tr>
+                  <tr class="same-row">
+                    <td><strong>sandboxed iframe</strong><br><small>（allow-same-origin付き）</small></td>
+                    <td><span class="badge error">あり</span></td>
+                    <td><span class="badge success">あり</span></td>
+                    <td><span class="badge success">✓ 同一オリジン</span></td>
+                    <td><span class="badge success">✓ 可能</span></td>
+                    <td>allow-same-originにより同一オリジン扱いを許可（ただし他の制限は残る）</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="key-concept">
+                <strong>💡 重要ポイント：</strong>
+                sandbox属性は<strong>信頼できないコンテンツを隔離</strong>するための仕組みです。
+                allow-same-originを付けない限り、同じサイトのページでも強制的にクロスオリジン扱いになり、
+                <strong>同一オリジンポリシー（SOP）</strong>による保護が働きます。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>postMessage デモ</h2>
+
+          <!-- ヘルプトグルボタン -->
+          <button class="help-toggle" onclick="toggleHelp('pm-help')">【解説】postMessageとは？</button>
+
+          <!-- ヘルプパネル -->
+          <div id="pm-help" class="help-panel">
+            <h4><span class="icon-info"></span> postMessage：SOPの壁を越える安全な通信手段</h4>
+            <p>
+              <strong>postMessage</strong>は、異なるオリジン間でメッセージを安全にやり取りするためのJavaScript APIです。
+              SOPにより通常はDOMアクセスがブロックされますが、postMessageを使えば<strong>メッセージの送受信だけは可能</strong>です。
+            </p>
+            <p>
+              <strong>なぜ安全？</strong> postMessageは「データを渡す」だけで、「DOMを操作する」ことはできません。
+              受信側は送信元のオリジンを確認してから処理できるため、信頼できる相手とだけ通信できます。
+            </p>
+          </div>
+
+          <div class="visual-box">
+            <div class="visual-title">postMessageの仕組み</div>
+            <div class="protection-steps">
+              <div class="protection-step highlight">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <strong>親ページ（このページ）</strong>が子ページ（iframe）に向けてメッセージを送信<br>
+                  <code>iframe.contentWindow.postMessage(data, '*')</code>
+                </div>
+              </div>
+              <div class="arrow-down">↓</div>
+              <div class="protection-step highlight">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <strong>子ページ（iframe内）</strong>がメッセージを受信<br>
+                  <code>window.addEventListener('message', (event) => {...})</code>
+                </div>
+              </div>
+              <div class="arrow-down">↓</div>
+              <div class="protection-step highlight">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <strong>子ページ</strong>が親ページに返信を送信<br>
+                  双方向のメッセージ交換が可能
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-guide">
+            <h4><span class="icon-idea"></span> 実験手順</h4>
+            <ol>
+              <li><strong>送信先を選択</strong>：同一オリジンiframe または sandbox iframe</li>
+              <li><strong>メッセージを入力</strong>：送りたい文字列を入力</li>
+              <li><strong>「postMessage 送信」ボタンをクリック</strong></li>
+              <li><strong>受信ログを確認</strong>：親→子へのメッセージ送信、子→親からの返信が表示されます</li>
+            </ol>
+            <p class="muted small">
+              ※ iframeからの返信は自動的に親ページに送られ、下の受信ログに表示されます。
+            </p>
+          </div>
+
+          <div class="pm-grid">
+            <div>
+              <label class="label">送信先</label>
+              <select id="pmTarget">
+                <option value="safe">同一オリジン iframe</option>
+                <option value="sandboxed">sandbox iframe（origin: null）</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">メッセージ</label>
+              <input id="pmMessage" type="text" value="Hello from parent!" />
+            </div>
+            <div class="pm-actions">
+              <button id="btnPostMessage" class="btn">postMessage 送信</button>
+            </div>
+          </div>
+
+          <div class="log">
+            <div class="log-head">受信ログ</div>
+            <pre id="pmLog" class="pre"></pre>
+          </div>
+
+          <div class="key-concept">
+            <strong>💡 重要ポイント：</strong>
+            上のSOP実験では、sandboxed iframe（クロスオリジン扱い）のDOMは読めませんでした。
+            しかし、<strong>postMessageなら同じiframeともメッセージ交換が可能</strong>です。
+            <br />これが「SOPの壁を越える唯一の標準的で安全な方法」です。
+          </div>
+
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>通信方法</th>
+                <th>同一オリジン</th>
+                <th>クロスオリジン</th>
+                <th>セキュリティ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="diff-row">
+                <td><strong>DOMアクセス</strong><br><small>（contentDocument等）</small></td>
+                <td><span class="badge success">✓ 可能</span></td>
+                <td><span class="badge error">✗ 不可</span></td>
+                <td>SOPにより完全ブロック</td>
+              </tr>
+              <tr class="same-row">
+                <td><strong>postMessage</strong><br><small>（メッセージ送受信）</small></td>
+                <td><span class="badge success">✓ 可能</span></td>
+                <td><span class="badge success">✓ 可能</span></td>
+                <td>送信元オリジンを確認可能で安全</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CORS Decision Simulator ============ -->
+    <section id="tab-simulator" class="tab-panel">
+      <!-- 学習目標 -->
+      <div class="learning-objectives">
+        <h3><span class="icon-target"></span>このタブで学ぶこと</h3>
+        <ul>
+          <li><strong>シンプルリクエスト（Simple Request）</strong>と<strong>プリフライトリクエスト（Preflight Request）</strong>の違い</li>
+          <li>どんな条件でブラウザーが<strong>OPTIONSリクエスト</strong>を送るのか</li>
+          <li>サーバーが返す<strong>CORSヘッダー</strong>（ACAO, ACAC等）の役割</li>
+          <li>リクエストが成功/失敗する理由を論理的に理解</li>
+        </ul>
+      </div>
+
+      <!-- CORS解説アコーディオン -->
+      <div class="panel-grid single-column">
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('cors-about')">
+            <h2>📖 CORS（Cross-Origin Resource Sharing）とは？</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="cors-about" class="accordion-content">
+            <div class="visual-box cors-flow-diagram">
+              <div class="visual-title">CORSの基本的な流れ</div>
+              <div class="cors-participants">
+                <div class="cors-participant source">
+                  <div class="participant-icon">🌐</div>
+                  <div class="participant-label">アクセス元</div>
+                  <div class="participant-detail">
+                    <strong>このページ</strong><br>
+                    <code>https://your-site.com</code><br>
+                    <small>ブラウザー上で動作</small>
+                  </div>
+                </div>
+
+                <div class="cors-flow-arrows">
+                  <div class="flow-step">
+                    <div class="flow-arrow right">
+                      <div class="arrow-label">① リクエスト送信</div>
+                      <div class="arrow-body">───────►</div>
+                      <div class="arrow-detail">データが欲しい！</div>
+                    </div>
+                  </div>
+                  <div class="flow-step">
+                    <div class="flow-arrow left">
+                      <div class="arrow-label">② レスポンス返却</div>
+                      <div class="arrow-body">◄───────</div>
+                      <div class="arrow-detail">CORSヘッダー付きで返す</div>
+                    </div>
+                  </div>
+                  <div class="flow-step browser-check">
+                    <div class="check-box">
+                      <strong>③ ブラウザーがチェック</strong><br>
+                      <small>CORSヘッダーを確認して、<br>許可/ブロックを判定</small>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="cors-participant destination">
+                  <div class="participant-icon">🖥️</div>
+                  <div class="participant-label">アクセス先</div>
+                  <div class="participant-detail">
+                    <strong>外部サーバー</strong><br>
+                    <code>https://api.example.com</code><br>
+                    <small>データを提供する側</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p>
+              <strong>CORS</strong>は、「<strong style="color:var(--primary);">アクセス元（このページ）</strong>」が「<strong style="color:var(--secondary);">アクセス先（外部サーバー）</strong>」からデータを取得したいときに使う仕組みです。
+              SOPで原則ブロックされますが、<strong>サーバーが「このオリジンからのアクセスはOK」と宣言</strong>すれば、ブラウザーが許可します。
+            </p>
+
+            <div class="key-concept">
+              <strong>🎯 重要概念：</strong>
+              CORSはサーバー側の「許可証」です。ブラウザーは勝手にリクエストを送りますが、
+              サーバーが適切なヘッダーを返さないと、<strong>ブラウザーがレスポンスをブロック</strong>します。
+              CORSのチェックは<strong>ブラウザー</strong>が行います。リクエスト自体はサーバーに届きますが、
+              <strong>レスポンスを読み取れるかどうかはブラウザーが判断</strong>します。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- シンプルリクエストとプリフライトリクエストの解説アコーディオン -->
+      <div class="panel-grid single-column">
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('request-types')">
+            <h2>🔄 シンプルリクエストとプリフライトリクエスト</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="request-types" class="accordion-content">
+            <p>
+              CORSリクエストには<strong>2つの種類</strong>があります。
+              どちらになるかは、<strong>リクエストの条件</strong>によって自動的に決まります。
+            </p>
+
+            <!-- シンプルリクエスト -->
+            <div class="request-type-section simple">
+              <h3 class="request-type-title">
+                <span class="request-type-icon">✓</span>
+                シンプルリクエスト（Simple Request）
+                <span class="request-type-alias">＝ 単純リクエスト</span>
+              </h3>
+              <div class="request-type-desc">
+                <p>
+                  特定の条件を<strong>すべて満たす</strong>場合、ブラウザーは<strong>プリフライトなしで直接リクエストを送信</strong>します。
+                  サーバーからのレスポンスに適切なCORSヘッダーがあれば、そのまま成功します。
+                </p>
+              </div>
+
+              <div class="request-type-conditions">
+                <h4>✓ シンプルリクエストの条件（すべて必要）</h4>
+                <ol class="condition-list">
+                  <li>
+                    <strong>メソッド</strong>が以下のいずれか：
+                    <div class="condition-values">
+                      <code>GET</code>, <code>HEAD</code>, <code>POST</code>
+                    </div>
+                  </li>
+                  <li>
+                    <strong>Content-Type</strong>が以下のいずれか（POSTの場合）：
+                    <div class="condition-values">
+                      <code>text/plain</code><br>
+                      <code>application/x-www-form-urlencoded</code><br>
+                      <code>multipart/form-data</code>
+                    </div>
+                  </li>
+                  <li>
+                    <strong>カスタムヘッダー</strong>が以下のセーフリストのみ：
+                    <div class="condition-values">
+                      <code>Accept</code>, <code>Accept-Language</code>, <code>Content-Language</code>, <code>Content-Type</code>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+
+              <div class="request-type-flow">
+                <h4>📋 シンプルリクエストの流れ</h4>
+                <div class="flow-diagram">
+                  <div class="flow-step-simple">
+                    <span class="step-num-simple">1</span>
+                    <span class="step-text">ブラウザーが直接リクエスト送信</span>
+                  </div>
+                  <div class="flow-arrow-simple">↓</div>
+                  <div class="flow-step-simple">
+                    <span class="step-num-simple">2</span>
+                    <span class="step-text">サーバーがCORSヘッダー付きでレスポンス</span>
+                  </div>
+                  <div class="flow-arrow-simple">↓</div>
+                  <div class="flow-step-simple">
+                    <span class="step-num-simple">3</span>
+                    <span class="step-text">ブラウザーがCORSヘッダーをチェック</span>
+                  </div>
+                  <div class="flow-arrow-simple">↓</div>
+                  <div class="flow-step-simple success">
+                    <span class="step-num-simple">✓</span>
+                    <span class="step-text">許可 → JavaScriptがレスポンスを取得</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- プリフライトリクエスト -->
+            <div class="request-type-section preflight">
+              <h3 class="request-type-title">
+                <span class="request-type-icon">⚠️</span>
+                プリフライトリクエスト（Preflight Request）
+              </h3>
+
+              <div class="preflight-term-explanation">
+                <strong>📖 「プリフライト（Preflight）」とは？</strong>
+                <p>
+                  <strong>Pre-（事前の）+ Flight（飛行）</strong> = <strong>飛行前</strong> という意味です。
+                  飛行機が離陸前に行う安全確認のことを指し、転じて<strong>「本番の処理の前に行う事前確認」</strong>という意味で使われます。
+                </p>
+                <p>
+                  <strong>技術的には：</strong> ブラウザーが本リクエストの前に自動的に送る<strong>「OPTIONSメソッドのリクエスト」</strong>のことです。
+                  サーバーが「このリクエストを受け入れるか」を事前にチェックできます。
+                </p>
+              </div>
+
+              <div class="request-type-desc">
+                <p>
+                  シンプルリクエストの条件を<strong>1つでも満たさない</strong>場合、ブラウザーは<strong>本リクエストの前にOPTIONSメソッドで事前確認</strong>します。
+                  これにより、サーバーが「このリクエストを受け入れるか」を事前にチェックできます。
+                </p>
+              </div>
+
+              <div class="request-type-triggers">
+                <h4>⚠️ プリフライトが発生する例</h4>
+                <ul class="trigger-list">
+                  <li><code>PUT</code>, <code>PATCH</code>, <code>DELETE</code> などの<strong>非セーフメソッド</strong>を使用</li>
+                  <li><code>application/json</code>, <code>application/xml</code> などの<strong>非セーフContent-Type</strong>を使用</li>
+                  <li><code>Authorization</code>, <code>X-Requested-With</code> などの<strong>カスタムヘッダー</strong>を追加</li>
+                </ul>
+              </div>
+
+              <div class="request-type-flow">
+                <h4>📋 プリフライトリクエストの流れ</h4>
+                <div class="flow-diagram">
+                  <div class="flow-step-preflight">
+                    <span class="step-num-preflight">1</span>
+                    <span class="step-text">ブラウザーがOPTIONSリクエスト送信（プリフライト）</span>
+                  </div>
+                  <div class="flow-arrow-preflight">↓</div>
+                  <div class="flow-step-preflight">
+                    <span class="step-num-preflight">2</span>
+                    <span class="step-text">サーバーが許可内容を返す（ACAM, ACAH等）</span>
+                  </div>
+                  <div class="flow-arrow-preflight">↓</div>
+                  <div class="flow-step-preflight">
+                    <span class="step-num-preflight">3</span>
+                    <span class="step-text">ブラウザーがプリフライトレスポンスをチェック</span>
+                  </div>
+                  <div class="flow-arrow-preflight">↓</div>
+                  <div class="flow-step-preflight success">
+                    <span class="step-num-preflight">✓</span>
+                    <span class="step-text">許可されていれば本リクエスト送信</span>
+                  </div>
+                  <div class="flow-arrow-preflight">↓</div>
+                  <div class="flow-step-preflight">
+                    <span class="step-num-preflight">4</span>
+                    <span class="step-text">サーバーが本レスポンスを返す</span>
+                  </div>
+                  <div class="flow-arrow-preflight">↓</div>
+                  <div class="flow-step-preflight success">
+                    <span class="step-num-preflight">✓</span>
+                    <span class="step-text">JavaScriptがレスポンスを取得</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="key-concept">
+              <strong>💡 重要ポイント：</strong>
+              <ul style="margin:8px 0; padding-left:20px; line-height:1.7;">
+                <li><strong>シンプルリクエスト</strong>は条件が厳しく、実際のWebアプリでは<strong>ほとんどプリフライト</strong>が発生します</li>
+                <li><strong>ブラウザーが</strong>プリフライト（OPTIONS）を<strong>自動的に送る</strong>ため、開発者が意識する必要はありません</li>
+                <li>プリフライトで許可されない場合、<strong>本リクエストは送信されません</strong></li>
+                <li>DevToolsのNetworkタブで<code>OPTIONS</code>メソッドを確認すると、プリフライトの詳細がわかります</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 用語集アコーディオン -->
+      <div class="panel-grid single-column">
+        <div class="card accordion-card">
+          <div class="accordion-header" onclick="toggleAccordion('cors-glossary')">
+            <h2>📚 用語集：CORS用語の完全ガイド</h2>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="cors-glossary" class="accordion-content">
+            <p class="muted">
+              CORSの学習でよく出てくる用語を整理しました。実験を進める前に、ここで確認しておくとスムーズです。
+            </p>
+
+            <!-- セーフメソッド -->
+            <div class="glossary-section">
+              <h3 class="glossary-title">🔹 セーフメソッド（Safe Methods）</h3>
+              <p>
+                <strong>シンプルリクエスト</strong>として扱われる可能性があるHTTPメソッドです。
+                ただし、他の条件（Content-Typeやヘッダー）も満たす必要があります。
+              </p>
+              <div class="glossary-list">
+                <div class="glossary-item">
+                  <code class="glossary-code">GET</code>
+                  <span class="glossary-desc">リソースの取得（もっとも一般的）</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">HEAD</code>
+                  <span class="glossary-desc">ヘッダー情報のみ取得</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">POST</code>
+                  <span class="glossary-desc">データの送信（Content-Type制限あり）</span>
+                </div>
+              </div>
+              <p class="muted small">
+                ⚠️ <strong>PUT</strong>、<strong>PATCH</strong>、<strong>DELETE</strong>などはセーフメソッドではないため、
+                必ず<strong>プリフライト（事前確認のOPTIONSリクエスト）</strong>が発生します。
+              </p>
+            </div>
+
+            <!-- セーフリスト -->
+            <div class="glossary-section">
+              <h3 class="glossary-title">🔹 セーフリスト（Safe List）</h3>
+              <p>
+                プリフライトなしで送信できる<strong>Content-Type</strong>と<strong>リクエストヘッダー</strong>のリストです。
+              </p>
+
+              <h4 class="glossary-subtitle">✓ セーフなContent-Type</h4>
+              <div class="glossary-list">
+                <div class="glossary-item">
+                  <code class="glossary-code">text/plain</code>
+                  <span class="glossary-desc">プレーンテキスト</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">application/x-www-form-urlencoded</code>
+                  <span class="glossary-desc">HTMLフォーム送信のデフォルト形式</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">multipart/form-data</code>
+                  <span class="glossary-desc">ファイルアップロード用</span>
+                </div>
+              </div>
+              <p class="muted small">
+                ⚠️ <strong>application/json</strong>、<strong>application/xml</strong>などは<strong>非セーフリスト</strong>なので、
+                プリフライトが発生します。
+              </p>
+
+              <h4 class="glossary-subtitle">✓ セーフなリクエストヘッダー</h4>
+              <div class="glossary-list">
+                <div class="glossary-item">
+                  <code class="glossary-code">Accept</code>
+                  <span class="glossary-desc">受け入れ可能なレスポンス形式</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">Accept-Language</code>
+                  <span class="glossary-desc">希望する言語</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">Content-Language</code>
+                  <span class="glossary-desc">コンテンツの言語</span>
+                </div>
+                <div class="glossary-item">
+                  <code class="glossary-code">Content-Type</code>
+                  <span class="glossary-desc">上記の3種類のいずれかの場合のみ</span>
+                </div>
+              </div>
+              <p class="muted small">
+                ⚠️ <strong>Authorization</strong>、<strong>X-Requested-With</strong>などは<strong>非セーフリスト</strong>なので、
+                プリフライトが発生します。
+              </p>
+            </div>
+
+            <!-- CORSレスポンスヘッダー -->
+            <div class="glossary-section">
+              <h3 class="glossary-title">🔹 CORSレスポンスヘッダー（サーバーが返すヘッダー）</h3>
+              <p>
+                サーバーがブラウザーに対して「このリクエストは許可します」と伝えるためのヘッダーです。
+              </p>
+
+              <div class="glossary-header-item">
+                <div class="header-name">
+                  <code class="glossary-code-large">Access-Control-Allow-Origin</code>
+                  <span class="header-abbr">（ACAO）</span>
+                </div>
+                <div class="header-desc">
+                  <strong>役割：</strong>どのオリジンからのアクセスを許可するか指定します。
+                </div>
+                <div class="header-examples">
+                  <div class="header-example">
+                    <code>Access-Control-Allow-Origin: https://example.com</code>
+                    <span class="example-note">→ 特定の1つのオリジンを許可</span>
+                  </div>
+                  <div class="header-example">
+                    <code>Access-Control-Allow-Origin: *</code>
+                    <span class="example-note">→ すべてのオリジンを許可（ワイルドカード）</span>
+                  </div>
+                </div>
+                <div class="header-note">
+                  <strong>⚠️ 重要な制約：</strong>
+                  <ul style="margin:8px 0; padding-left:20px; line-height:1.7;">
+                    <li>
+                      <strong>複数のオリジンを指定できません。</strong>
+                      カンマ区切りで<code>https://example.com, https://other.com</code>のように列挙することはできません。
+                      指定できるのは<strong>1つのオリジン</strong>または<strong>ワイルドカード（*）</strong>のみです。
+                    </li>
+                    <li>
+                      複数のオリジンからのアクセスを許可したい場合、サーバー側でリクエストの<code>Origin</code>ヘッダーを確認し、
+                      許可するオリジンのリストと照合した上で、<strong>動的に該当オリジンを返す</strong>実装が必要です。
+                    </li>
+                    <li>
+                      <strong>すべてのオリジンを許可したい場合</strong>は、ワイルドカード（<code>*</code>）を使います。
+                      ただし、<strong>withCredentials: true</strong>の場合、<code>*</code>は使えません。具体的なオリジンを指定する必要があります。
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="glossary-header-item">
+                <div class="header-name">
+                  <code class="glossary-code-large">Access-Control-Allow-Credentials</code>
+                  <span class="header-abbr">（ACAC）</span>
+                </div>
+                <div class="header-desc">
+                  <strong>役割：</strong>Cookie や認証情報を含むリクエストを許可するかどうか指定します。
+                </div>
+                <div class="header-examples">
+                  <div class="header-example">
+                    <code>Access-Control-Allow-Credentials: true</code>
+                    <span class="example-note">→ 資格情報を含むリクエストを許可</span>
+                  </div>
+                </div>
+                <div class="header-note">
+                  ⚠️ <strong>withCredentials: true</strong>でリクエストする場合、このヘッダーは<strong>必須</strong>です。
+                </div>
+              </div>
+
+              <div class="glossary-header-item">
+                <div class="header-name">
+                  <code class="glossary-code-large">Access-Control-Allow-Methods</code>
+                  <span class="header-abbr">（ACAM）</span>
+                </div>
+                <div class="header-desc">
+                  <strong>役割：</strong>プリフライトで、どのHTTPメソッドを許可するか指定します。
+                </div>
+                <div class="header-examples">
+                  <div class="header-example">
+                    <code>Access-Control-Allow-Methods: GET, POST, PUT, DELETE</code>
+                    <span class="example-note">→ 指定したメソッドを許可</span>
+                  </div>
+                </div>
+                <div class="header-note">
+                  ⚠️ プリフライト（OPTIONS）レスポンスで返す必要があります。本リクエストのメソッドが含まれていないと、リクエストがブロックされます。
+                </div>
+              </div>
+
+              <div class="glossary-header-item">
+                <div class="header-name">
+                  <code class="glossary-code-large">Access-Control-Allow-Headers</code>
+                  <span class="header-abbr">（ACAH）</span>
+                </div>
+                <div class="header-desc">
+                  <strong>役割：</strong>プリフライトで、どのカスタムヘッダーを許可するか指定します。
+                </div>
+                <div class="header-examples">
+                  <div class="header-example">
+                    <code>Access-Control-Allow-Headers: Authorization, Content-Type</code>
+                    <span class="example-note">→ 指定したヘッダーを許可</span>
+                  </div>
+                </div>
+                <div class="header-note">
+                  ⚠️ プリフライト（OPTIONS）レスポンスで返す必要があります。非セーフリストヘッダーが含まれていないと、リクエストがブロックされます。
+                </div>
+              </div>
+            </div>
+
+            <div class="key-concept">
+              <strong>💡 まとめ：</strong>
+              <ul style="margin:8px 0; padding-left:20px; line-height:1.7;">
+                <li><strong>セーフメソッド・セーフリスト</strong>は、プリフライトを避けるための条件</li>
+                <li><strong>ACAO</strong>はもっとも重要なCORSヘッダーで、これがないとすべてブロックされる</li>
+                <li><strong>ACAC</strong>は資格情報（Cookie等）を送る場合に必須</li>
+                <li><strong>ACAM</strong>と<strong>ACAH</strong>は、プリフライトでサーバーが「何を許可するか」を宣言するヘッダー</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- プリセット実験ガイド -->
+      <div class="panel-grid single-column">
+        <div class="card">
+          <h2>📋 プリセットで学ぶ：段階的実験ガイド</h2>
+          <p class="muted">
+            3つのプリセットボタンを使って、CORSの動作を段階的に理解しましょう。
+            各プリセットをクリックすると、リクエスト設定とサーバーレスポンスが自動入力され、「判定する」ボタンで結果を確認できます。
+          </p>
+
+          <div class="experiment-steps">
+            <!-- 実験1: シンプルリクエスト -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">1</span>
+                <h3>実験1：シンプルリクエスト（プリフライトなし）</h3>
+              </div>
+              <p class="step-description">
+                <strong>「プリセット：Simple」</strong>ボタンをクリックして、もっともシンプルなCORSリクエストを試してみましょう。
+              </p>
+
+              <div class="preset-details">
+                <h4>📝 セットされる内容</h4>
+                <table class="preset-table">
+                  <tbody>
+                    <tr>
+                      <th>メソッド</th>
+                      <td><code>GET</code></td>
+                      <td class="reason">セーフメソッド（GET/HEAD/POST）の1つ</td>
+                    </tr>
+                    <tr>
+                      <th>Content-Type</th>
+                      <td><code>text/plain</code></td>
+                      <td class="reason">セーフリストのContent-Type</td>
+                    </tr>
+                    <tr>
+                      <th>カスタムヘッダー</th>
+                      <td><code>なし</code></td>
+                      <td class="reason">カスタムヘッダーを追加しない</td>
+                    </tr>
+                    <tr>
+                      <th>withCredentials</th>
+                      <td><code>false</code></td>
+                      <td class="reason">資格情報を送らない</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAO</th>
+                      <td><code>このページのオリジン</code></td>
+                      <td class="reason">サーバーが明示的に許可</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAM</th>
+                      <td><code>GET, POST</code></td>
+                      <td class="reason">許可するメソッドを列挙</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="result-preview">
+                  <h4>🎯 期待される結果</h4>
+                  <div class="result-badges">
+                    <span class="result-badge success">✓ シンプルリクエスト: YES</span>
+                    <span class="result-badge success">✓ プリフライト: NO（不要）</span>
+                    <span class="result-badge success">✓ 最終判定: ALLOW</span>
+                  </div>
+                  <p class="result-explanation-text">
+                    <strong>💡 学べるポイント：</strong>
+                    すべての条件がシンプルリクエストの要件を満たしているため、プリフライトなしで直接リクエストが送られます。
+                    サーバーも適切なCORSヘッダーを返しているため、ブラウザーはレスポンスを許可します。
+                  </p>
+                </div>
+
+                <div class="preset-action">
+                  <button id="btnSimPresetSimple" class="btn">プリセット：Simple</button>
+                  <p class="muted small">↑ クリック後、下の「判定する」ボタンを押して結果を確認してください</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 実験2: プリフライトが発生 -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">2</span>
+                <h3>実験2：プリフライトリクエスト（OPTIONSが送られる）</h3>
+              </div>
+              <p class="step-description">
+                <strong>「プリセット：JSON」</strong>ボタンをクリックして、プリフライトが発生するパターンを試してみましょう。
+              </p>
+
+              <div class="preset-details">
+                <h4>📝 セットされる内容</h4>
+                <table class="preset-table">
+                  <tbody>
+                    <tr>
+                      <th>メソッド</th>
+                      <td><code>POST</code></td>
+                      <td class="reason">セーフメソッドの1つ</td>
+                    </tr>
+                    <tr class="trigger-row">
+                      <th>Content-Type</th>
+                      <td><code>application/json</code></td>
+                      <td class="reason"><strong>⚠️ 非セーフリスト！</strong> プリフライトの原因</td>
+                    </tr>
+                    <tr>
+                      <th>カスタムヘッダー</th>
+                      <td><code>なし</code></td>
+                      <td class="reason">カスタムヘッダーなし</td>
+                    </tr>
+                    <tr>
+                      <th>withCredentials</th>
+                      <td><code>false</code></td>
+                      <td class="reason">資格情報なし</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAO</th>
+                      <td><code>このページのオリジン</code></td>
+                      <td class="reason">サーバーが許可</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAM</th>
+                      <td><code>GET, POST, PUT</code></td>
+                      <td class="reason">POSTを許可</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAH</th>
+                      <td><code>content-type</code></td>
+                      <td class="reason">Content-Typeヘッダーを許可</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="result-preview">
+                  <h4>🎯 期待される結果</h4>
+                  <div class="result-badges">
+                    <span class="result-badge warn">✗ シンプルリクエスト: NO</span>
+                    <span class="result-badge warn">⚠️ プリフライト: YES（OPTIONS送信）</span>
+                    <span class="result-badge success">✓ 最終判定: ALLOW</span>
+                  </div>
+                  <p class="result-explanation-text">
+                    <strong>💡 学べるポイント：</strong>
+                    <code>application/json</code>はセーフリストに含まれないため、ブラウザーはまず<strong>OPTIONSメソッド</strong>で事前確認（プリフライト）を行います。
+                    サーバーがプリフライトで適切な許可を返せば、本リクエスト（POST）が実行されます。
+                  </p>
+                </div>
+
+                <div class="preset-action">
+                  <button id="btnSimPresetJSON" class="btn">プリセット：JSON</button>
+                  <p class="muted small">↑ クリック後、下の「判定する」ボタンを押して結果を確認してください</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 実験3: 資格情報付き -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">3</span>
+                <h3>実験3：認証ヘッダーと資格情報（Credentials）</h3>
+              </div>
+              <p class="step-description">
+                <strong>「プリセット：Authorization」</strong>ボタンをクリックして、認証が必要なリクエストを試してみましょう。
+              </p>
+
+              <div class="preset-details">
+                <h4>📝 セットされる内容</h4>
+                <table class="preset-table">
+                  <tbody>
+                    <tr>
+                      <th>メソッド</th>
+                      <td><code>GET</code></td>
+                      <td class="reason">セーフメソッド</td>
+                    </tr>
+                    <tr>
+                      <th>Content-Type</th>
+                      <td><code>（未指定）</code></td>
+                      <td class="reason">指定なし</td>
+                    </tr>
+                    <tr class="trigger-row">
+                      <th>カスタムヘッダー</th>
+                      <td><code>Authorization</code></td>
+                      <td class="reason"><strong>⚠️ 非セーフリスト！</strong> プリフライトの原因</td>
+                    </tr>
+                    <tr class="trigger-row">
+                      <th>withCredentials</th>
+                      <td><code>true</code></td>
+                      <td class="reason"><strong>⚠️ Cookie/認証情報を送る</strong></td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAO</th>
+                      <td><code>このページのオリジン</code></td>
+                      <td class="reason"><strong>⚠️ ワイルドカード（*）は使えない！</strong></td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAC</th>
+                      <td><code>true</code></td>
+                      <td class="reason"><strong>必須！</strong> Credentials使用時</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAM</th>
+                      <td><code>GET, POST</code></td>
+                      <td class="reason">GETを許可</td>
+                    </tr>
+                    <tr class="server-row">
+                      <th>ACAH</th>
+                      <td><code>authorization</code></td>
+                      <td class="reason">Authorizationヘッダーを許可</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="result-preview">
+                  <h4>🎯 期待される結果</h4>
+                  <div class="result-badges">
+                    <span class="result-badge warn">✗ シンプルリクエスト: NO</span>
+                    <span class="result-badge warn">⚠️ プリフライト: YES（OPTIONS送信）</span>
+                    <span class="result-badge success">✓ 最終判定: ALLOW</span>
+                  </div>
+                  <p class="result-explanation-text">
+                    <strong>💡 学べるポイント：</strong>
+                    <code>Authorization</code>ヘッダーは非セーフリストなのでプリフライトが発生します。
+                    さらに<code>withCredentials: true</code>の場合、<code>ACAO</code>でワイルドカードは使えず、
+                    サーバーは<strong>具体的なオリジンを指定</strong>し、<code>ACAC: true</code>を返す必要があります。
+                  </p>
+                </div>
+
+                <div class="preset-action">
+                  <button id="btnSimPresetAuth" class="btn">プリセット：Authorization</button>
+                  <p class="muted small">↑ クリック後、下の「判定する」ボタンを押して結果を確認してください</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 比較表 -->
+          <div class="comparison-summary">
+            <h3>📊 3つのプリセットの比較まとめ</h3>
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>プリセット</th>
+                  <th>メソッド</th>
+                  <th>Content-Type</th>
+                  <th>カスタムヘッダー</th>
+                  <th>Credentials</th>
+                  <th>シンプル判定</th>
+                  <th>プリフライト</th>
+                  <th>最終判定</th>
+                  <th>学習ポイント</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="same-row">
+                  <td><strong>Simple</strong></td>
+                  <td><code>GET</code></td>
+                  <td><code>text/plain</code></td>
+                  <td>なし</td>
+                  <td>false</td>
+                  <td><span class="badge success">YES</span></td>
+                  <td><span class="badge success">不要</span></td>
+                  <td><span class="badge success">ALLOW</span></td>
+                  <td>もっともシンプルな成功例</td>
+                </tr>
+                <tr class="diff-row">
+                  <td><strong>JSON</strong></td>
+                  <td><code>POST</code></td>
+                  <td><code>application/json</code></td>
+                  <td>なし</td>
+                  <td>false</td>
+                  <td><span class="badge error">NO</span></td>
+                  <td><span class="badge warn">OPTIONS</span></td>
+                  <td><span class="badge success">ALLOW</span></td>
+                  <td>Content-Typeでプリフライト発生</td>
+                </tr>
+                <tr class="diff-row">
+                  <td><strong>Authorization</strong></td>
+                  <td><code>GET</code></td>
+                  <td>未指定</td>
+                  <td><code>Authorization</code></td>
+                  <td><strong>true</strong></td>
+                  <td><span class="badge error">NO</span></td>
+                  <td><span class="badge warn">OPTIONS</span></td>
+                  <td><span class="badge success">ALLOW</span></td>
+                  <td>認証ヘッダー＋Credentials時の注意点</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="key-concept">
+              <strong>🎓 まとめ：</strong>
+              <ul style="margin:8px 0; padding-left:20px; line-height:1.7;">
+                <li><strong>シンプルリクエスト</strong>は条件が厳しく、少しでも外れるとプリフライトが発生する</li>
+                <li><strong>プリフライト（OPTIONS）</strong>は本リクエストの前に「許可確認」をする仕組み</li>
+                <li><strong>Credentials使用時</strong>は、サーバー側でワイルドカード（*）が使えず、明示的なオリジン指定とACAC: trueが必須</li>
+                <li>実際のWebアプリでは、<strong>ほとんどのAPIリクエストでプリフライトが発生</strong>する（JSON通信やAuthorizationヘッダー使用が一般的なため）</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="card">
+          <h2>入力（クライアント側の意図）</h2>
+
+          <p class="muted">
+            上記のプリセット実験を試した後、ここで自由にパラメーターを変更して実験できます。
+          </p>
+          <div class="form-grid">
+            <div>
+              <label class="label">メソッド</label>
+              <select id="simMethod">
+                <option>GET</option>
+                <option>HEAD</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>PATCH</option>
+                <option>DELETE</option>
+                <option>OPTIONS</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Content-Type</label>
+              <select id="simContentType">
+                <option value="">（未指定）</option>
+                <option>text/plain</option>
+                <option>application/x-www-form-urlencoded</option>
+                <option>multipart/form-data</option>
+                <option>application/json</option>
+                <option>application/xml</option>
+              </select>
+            </div>
+            <div class="full">
+              <label class="label">カスタムリクエストヘッダー（カンマ区切り）</label>
+              <input id="simHeaders" type="text" placeholder="例）Authorization, X-Requested-With" />
+            </div>
+            <div>
+              <label class="checkbox">
+                <input id="simCred" type="checkbox" /> withCredentials（Cookie/認証情報を送る）
+              </label>
+            </div>
+          </div>
+
+          <div class="simulate-button-section">
+            <button id="btnSimulate" class="btn btn-primary-large">判定する</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>サーバーが返す想定レスポンスヘッダー</h2>
+          <div class="form-grid">
+            <div class="full">
+              <label class="label">Access-Control-Allow-Origin（ACAO）</label>
+              <input id="simACAO" type="text" placeholder="例）https://your-origin.example または *" />
+            </div>
+            <div>
+              <label class="label">Access-Control-Allow-Credentials（ACAC）</label>
+              <select id="simACAC">
+                <option value="">（未指定）</option>
+                <option>true</option>
+                <option>false</option>
+              </select>
+            </div>
+            <div class="full">
+              <label class="label">Access-Control-Allow-Methods（ACAM）</label>
+              <input id="simACAM" type="text" placeholder="例）GET, POST, PUT" />
+            </div>
+            <div class="full">
+              <label class="label">Access-Control-Allow-Headers（ACAH）</label>
+              <input id="simACAH" type="text" placeholder="例）Authorization, Content-Type" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>結果（可視フロー）</h2>
+          <div id="simFlow" class="flow"></div>
+          <div class="log">
+            <div class="log-head">解説</div>
+            <pre id="simExplain" class="pre"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Live Fetch Lab ============ -->
+    <section id="tab-live" class="tab-panel">
+      <!-- 学習目標 -->
+      <div class="learning-objectives">
+        <h3><span class="icon-target"></span>このタブで学ぶこと</h3>
+        <ul>
+          <li>実際の<strong>fetch()</strong>でCORSがどう動作するか</li>
+          <li>成功するリクエストと失敗するリクエストの違い</li>
+          <li>ブラウザーの<strong>DevTools（開発者ツール）</strong>でプリフライトを観察する方法</li>
+          <li>「リクエストは届いているのにエラー」の理由</li>
+        </ul>
+      </div>
+
+      <div class="key-concept">
+        <strong>⚠️ 重要：</strong> CORSエラーは「リクエストが送られなかった」のではなく、
+        「<strong>サーバーからレスポンスは返ってきたが、ブラウザーがブロックした</strong>」ことを意味します。
+        サーバーのログには記録が残っています！
+      </div>
+
+      <!-- プリセット実験ガイド -->
+      <div class="panel-grid single-column">
+        <div class="card">
+          <h2>📋 プリセットで学ぶ：段階的実験ガイド</h2>
+          <p class="muted">
+            3つのプリセットボタンで実際のCORS挙動を体験しましょう。
+            各プリセットをクリックすると自動入力され、「fetch 実行」ボタンで実際にリクエストを送信します。
+          </p>
+          <p class="muted small">
+            <strong>💡 推奨：</strong> ブラウザーの開発者ツール（<strong>F12キー</strong>）の<code>Network</code>タブを開いて、
+            実際のHTTPリクエスト・レスポンスを観察しながら実験してください。
+          </p>
+
+          <div class="experiment-steps">
+            <!-- 実験1: 許可例 -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">1</span>
+                <h3>実験1：CORS許可サーバー（成功例）</h3>
+              </div>
+              <p class="step-description">
+                <strong>「プリセット：許可例」</strong>ボタンをクリックして、CORSを許可するサーバーにリクエストを送ってみましょう。
+              </p>
+
+              <div class="preset-details">
+                <h4>📝 セットされる内容</h4>
+                <table class="preset-table">
+                  <tbody>
+                    <tr>
+                      <th>URL</th>
+                      <td colspan="2"><code>https://raw.githubusercontent.com/ipusiron/cors-playground/main/README.md</code></td>
+                    </tr>
+                    <tr>
+                      <th>メソッド</th>
+                      <td><code>GET</code></td>
+                      <td class="reason">セーフメソッド</td>
+                    </tr>
+                    <tr>
+                      <th>Content-Type</th>
+                      <td><code>（未指定）</code></td>
+                      <td class="reason">指定なし</td>
+                    </tr>
+                    <tr>
+                      <th>Credentials</th>
+                      <td><code>omit</code></td>
+                      <td class="reason">資格情報なし</td>
+                    </tr>
+                    <tr>
+                      <th>追加ヘッダー</th>
+                      <td><code>なし</code></td>
+                      <td class="reason">カスタムヘッダーなし</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="result-preview">
+                  <h4>🎯 期待される結果</h4>
+                  <div class="result-badges">
+                    <span class="result-badge success">✓ fetch成功</span>
+                    <span class="result-badge success">✓ レスポンス取得</span>
+                  </div>
+                  <p class="result-explanation-text">
+                    <strong>💡 学べるポイント：</strong>
+                    GitHub RawコンテンツサーバーはCORSを許可しています。
+                    シンプルリクエスト条件を満たしているため、プリフライトなしで直接リクエストが送信され、
+                    サーバーが適切な<code>Access-Control-Allow-Origin</code>ヘッダーを返すため成功します。
+                  </p>
+                </div>
+
+                <div class="preset-action">
+                  <button id="btnLivePresetOK" class="btn">プリセット：許可例</button>
+                  <p class="muted small">↑ クリック後、下の「リクエスト設定」カードで「fetch 実行」ボタンを押してください</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 実験2: 拒否例 -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">2</span>
+                <h3>実験2：CORS拒否サーバー（失敗例）</h3>
+              </div>
+              <p class="step-description">
+                <strong>「プリセット：拒否例」</strong>ボタンをクリックして、CORSを許可しないサーバーへのリクエストを試してみましょう。
+              </p>
+
+              <div class="preset-details">
+                <h4>📝 セットされる内容</h4>
+                <table class="preset-table">
+                  <tbody>
+                    <tr>
+                      <th>URL</th>
+                      <td colspan="2"><code>https://example.com/</code></td>
+                    </tr>
+                    <tr>
+                      <th>メソッド</th>
+                      <td><code>GET</code></td>
+                      <td class="reason">セーフメソッド</td>
+                    </tr>
+                    <tr>
+                      <th>Content-Type</th>
+                      <td><code>（未指定）</code></td>
+                      <td class="reason">指定なし</td>
+                    </tr>
+                    <tr class="trigger-row">
+                      <th>Credentials</th>
+                      <td><code>include</code></td>
+                      <td class="reason"><strong>⚠️ Cookie/認証情報を送る</strong></td>
+                    </tr>
+                    <tr class="trigger-row">
+                      <th>追加ヘッダー</th>
+                      <td><code>Authorization: Bearer demo-token</code></td>
+                      <td class="reason"><strong>⚠️ 非セーフリスト！</strong> プリフライトの原因</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="result-preview">
+                  <h4>🎯 期待される結果</h4>
+                  <div class="result-badges">
+                    <span class="result-badge error">✗ fetch失敗</span>
+                    <span class="result-badge error">✗ CORSエラー</span>
+                  </div>
+                  <p class="result-explanation-text">
+                    <strong>💡 学べるポイント：</strong>
+                    <code>Authorization</code>ヘッダーによりプリフライトが発生しますが、
+                    example.comはCORSを許可していないため、プリフライト段階でブロックされます。
+                    <strong>重要：リクエスト自体はサーバーに届いています</strong>が、ブラウザーがレスポンスへのアクセスをブロックします。
+                  </p>
+                </div>
+
+                <div class="preset-action">
+                  <button id="btnLivePresetNG" class="btn">プリセット：拒否例</button>
+                  <p class="muted small">↑ クリック後、下の「リクエスト設定」カードで「fetch 実行」ボタンを押してください</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 実験3: httpbin自作 -->
+            <div class="experiment-step">
+              <div class="step-header">
+                <span class="step-number">3</span>
+                <h3>実験3：CORSヘッダーを自作（httpbinで実験）</h3>
+              </div>
+              <p class="step-description">
+                <strong>「プリセット：httpbin自作レス」</strong>ボタンをクリックして、
+                任意のCORSヘッダーを返すサーバーで動作を確認してみましょう。
+              </p>
+
+              <div class="preset-details">
+                <h4>📝 セットされる内容</h4>
+                <table class="preset-table">
+                  <tbody>
+                    <tr>
+                      <th>URL</th>
+                      <td colspan="2">
+                        <code>https://httpbin.org/response-headers?Access-Control-Allow-Origin=*...</code>
+                        <br />
+                        <span class="muted small">※ クエリパラメーターで任意のCORSヘッダーを指定できます</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>メソッド</th>
+                      <td><code>GET</code></td>
+                      <td class="reason">セーフメソッド</td>
+                    </tr>
+                    <tr>
+                      <th>Content-Type</th>
+                      <td><code>（未指定）</code></td>
+                      <td class="reason">指定なし</td>
+                    </tr>
+                    <tr>
+                      <th>Credentials</th>
+                      <td><code>omit</code></td>
+                      <td class="reason">資格情報なし</td>
+                    </tr>
+                    <tr class="trigger-row">
+                      <th>追加ヘッダー</th>
+                      <td><code>X-Requested-With: cors-playground</code></td>
+                      <td class="reason"><strong>⚠️ 非セーフリスト！</strong> プリフライトの原因</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="result-preview">
+                  <h4>🎯 期待される結果</h4>
+                  <div class="result-badges">
+                    <span class="result-badge success">✓ fetch成功</span>
+                    <span class="result-badge warn">⚠️ プリフライト発生</span>
+                  </div>
+                  <p class="result-explanation-text">
+                    <strong>💡 学べるポイント：</strong>
+                    <code>X-Requested-With</code>ヘッダーによりプリフライト（OPTIONS）が発生します。
+                    httpbinはクエリパラメーターで指定したCORSヘッダーを返すため、
+                    プリフライトと本リクエストの両方が成功します。
+                    <strong>DevToolsのNetworkタブでOPTIONSリクエストを確認</strong>してみましょう！
+                  </p>
+                </div>
+
+                <div class="preset-action">
+                  <button id="btnLivePresetHttpbin" class="btn">プリセット：httpbin自作レス</button>
+                  <p class="muted small">↑ クリック後、下の「リクエスト設定」カードで「fetch 実行」ボタンを押してください</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="key-concept">
+            <strong>🎓 3つの実験から学べること：</strong>
+            <ul style="margin:8px 0; padding-left:20px; line-height:1.7;">
+              <li><strong>実験1（成功例）</strong>：CORSが正しく設定されていれば、クロスオリジンリクエストは成功する</li>
+              <li><strong>実験2（失敗例）</strong>：リクエストはサーバーに届くが、CORSヘッダーがないとブラウザーがブロックする</li>
+              <li><strong>実験3（プリフライト）</strong>：カスタムヘッダーを使うとプリフライトが発生し、サーバーは適切な許可が必要</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- リクエスト設定（手動実験用） -->
+      <div class="panel-grid">
+        <div class="card">
+          <h2>リクエスト設定（手動実験）</h2>
+          <p class="muted">
+            上のプリセットボタンで自動入力するか、ここから手動で設定して実験できます。
+          </p>
+
+          <div class="form-grid">
+            <div class="full">
+              <label class="label">URL</label>
+              <input id="liveUrl" type="url" placeholder="https://httpbin.org/anything" />
+            </div>
+            <div>
+              <label class="label">メソッド</label>
+              <select id="liveMethod">
+                <option>GET</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>PATCH</option>
+                <option>DELETE</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Content-Type</label>
+              <select id="liveCT">
+                <option value="">（未指定）</option>
+                <option>text/plain</option>
+                <option>application/x-www-form-urlencoded</option>
+                <option>multipart/form-data</option>
+                <option>application/json</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Credentials</label>
+              <select id="liveCred">
+                <option value="omit">omit</option>
+                <option value="same-origin">same-origin</option>
+                <option value="include">include</option>
+              </select>
+            </div>
+            <div class="full">
+              <label class="label">追加ヘッダー（1行1つ：key: value）</label>
+              <textarea id="liveHeaders" rows="4" placeholder="Authorization: Bearer xxx&#10;X-Requested-With: fetch"></textarea>
+            </div>
+            <div class="full">
+              <label class="label">ボディ（任意）</label>
+              <textarea id="liveBody" rows="4" placeholder='{"hello": "world"}'></textarea>
+            </div>
+          </div>
+
+          <div style="margin-top:20px; text-align:center;">
+            <button id="btnLiveGo" class="btn btn-primary-large">fetch 実行</button>
+            <button id="btnLiveClear" class="btn ghost" style="margin-left:8px;">ログ消去</button>
+          </div>
+
+          <p class="muted small" style="margin-top:12px;">
+            ※ プリフライト（OPTIONS）はブラウザーが自動送信します。ここでは条件から
+            <b>「発生した可能性」</b> を推定し、ログに表示します。実際のOPTIONS詳細はDevToolsで確認してください。
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>結果ログ</h2>
+          <div class="log">
+            <div class="log-head">Request / Response</div>
+            <pre id="liveLog" class="pre"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer">
+      🔗 GitHubリポジトリはこちら（ <a href="https://github.com/ipusiron/cors-playground" target="_blank" rel="noopener">ipusiron/cors-playground</a> ）
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+  <script src="js/sop-lab.js"></script>
+  <script src="js/cors-simulator.js"></script>
+  <script src="js/live-fetch.js"></script>
+</body>
+</html>
