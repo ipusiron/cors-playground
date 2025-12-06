@@ -1,11 +1,37 @@
 <!--
 ---
-title: CORS Playground
-category: web-security
+id: day100
+slug: cors-playground
+
+title: "CORS Playground"
+
+subtitle_ja: "SOP・CORS・プリフライトの学習ツール"
+subtitle_en: "Interactive learning tool for SOP, CORS, and Preflight requests"
+
+description_ja: "同一オリジンポリシー（SOP）、CORS、プリフライトリクエストの仕組みを「理論」「可視化」「実験」の3軸で学べるインタラクティブ学習ツール"
+description_en: "Interactive playground to understand Same-Origin Policy, CORS, and preflight requests through visual simulation and live fetch experiments"
+
+category_ja:
+  - Webセキュリティ
+category_en:
+  - Web Security
+
 difficulty: 3
-description: Interactive playground to understand Same-Origin Policy, CORS, and preflight requests through visual simulation and live fetch experiments.
-tags: [web-security, cors, sop, preflight, javascript, education]
-demo: https://ipusiron.github.io/cors-playground/
+
+tags:
+  - cors
+  - sop
+  - same-origin-policy
+  - preflight
+  - web-security
+  - javascript
+  - education
+  - ctf
+
+repo_url: "https://github.com/ipusiron/cors-playground"
+demo_url: "https://ipusiron.github.io/cors-playground/"
+
+hub: true
 ---
 -->
 

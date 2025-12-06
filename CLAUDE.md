@@ -35,17 +35,24 @@ After modifying files, refresh the browser. Use browser DevTools (F12) to:
 
 ## Architecture
 
-### Three-Tab Structure
+### Four-Tab Structure
 
-The application is organized into three independent educational modules, each controlled by its own JavaScript file:
+The application is organized into four tabs, providing a progressive learning path from fundamentals to hands-on experimentation:
 
-1. **SOP Lab** (`js/sop-lab.js`)
+1. **Basics** (📚 基礎知識) - Static HTML content in `index.html`
+   - Visual explanation of DOM structure with tree visualization
+   - Origin breakdown (scheme + host + port) with color-coded diagrams
+   - iframe parent-child relationship visualization
+   - Attack vs. protection scenarios showing why SOP is necessary
+   - No JavaScript required - pure HTML/CSS educational content
+
+2. **SOP Lab** (`js/sop-lab.js`)
    - Uses `<iframe>` elements to demonstrate Same-Origin Policy restrictions
    - Compares same-origin iframe vs. sandboxed iframe (treated as cross-origin)
    - Demonstrates `postMessage` API for safe cross-origin communication
    - Shows that sandboxed iframes without `allow-same-origin` get `origin: null`
 
-2. **CORS Decision Simulator** (`js/cors-simulator.js`)
+3. **CORS Decision Simulator** (`js/cors-simulator.js`)
    - Pure client-side decision logic that simulates browser CORS validation
    - **Key constants:**
      - `SAFE_METHODS`: GET, HEAD, POST
@@ -62,7 +69,7 @@ The application is organized into three independent educational modules, each co
      - Non-safe headers must be in `Access-Control-Allow-Headers`
    - Renders visual flow diagram showing decision steps
 
-3. **Live Fetch Lab** (`js/live-fetch.js`)
+4. **Live Fetch Lab** (`js/live-fetch.js`)
    - Actually executes `fetch()` API calls against real endpoints
    - Logs request/response details and estimated preflight behavior
    - Presets include:
@@ -73,9 +80,10 @@ The application is organized into three independent educational modules, each co
 
 ### Common UI (`js/app.js`)
 
-- Tab switching logic for the three main modules
-- Theme toggle (light/dark mode) with localStorage persistence
-- Uses `localStorage` key `'corspg-theme'`
+- Tab switching logic for all four tabs
+- Theme toggle (light/dark mode) with localStorage persistence (key: `'corspg-theme'`)
+- Accordion toggle for collapsible content sections
+- Help panel toggle for contextual explanations
 
 ### CORS Validation Logic
 
@@ -146,43 +154,20 @@ Each tab now includes comprehensive learning aids:
 
 ### User Journey Design
 
-The tool now guides users through a structured learning path:
+The four tabs form a progressive learning path where each step builds on the previous:
 
-1. **📚 Basics Tab (NEW)**: Understand prerequisite concepts before experiments
-   - Visual explanation of DOM structure
-   - Origin breakdown (scheme + host + port) with color-coded diagrams
-   - iframe parent-child relationship visualization
-   - Attack vs. protection scenarios showing why SOP is necessary
+1. **📚 Basics** → 2. **🧪 SOP Lab** → 3. **⚙️ CORS Simulator** → 4. **🚀 Live Fetch**
 
-2. **🧪 SOP Lab**: Learn the fundamental security boundary through hands-on experiments
-
-3. **⚙️ CORS Decision Simulator**: Understand the rules and logic with interactive simulations
-
-4. **🚀 Live Fetch Lab**: Apply knowledge with real fetch() experiments
-
-Each step builds on the previous, with clear learning objectives and immediate feedback.
-
-### Visual Education Components
-
-The new **Basics Tab** uses extensive visual aids for beginners:
-
-- **DOM Tree Visualization** (`.tree-structure`): ASCII-style tree showing HTML hierarchy
-- **Origin Breakdown** (`.origin-parts`): Color-coded boxes for scheme/host/port
-- **Comparison Table** (`.comparison-table`): Same vs. different origin examples with badges
-- **iframe Diagram** (`.parent-page`, `.child-page`): Nested boxes showing embedding
-- **Attack Scenarios** (`.attack-steps`): Step-by-step dangerous scenario with red indicators
-- **Protection Flow** (`.protection-steps`): How SOP blocks attacks with green checkmarks
-
-All visual elements support both light and dark themes.
+Each tab includes learning objectives at the top and provides immediate visual feedback.
 
 ## File Organization
 
 ```
 cors-playground/
-├── index.html              # Main page with three tab sections
-├── css/style.css           # All styling including dark mode
+├── index.html              # Main page with four tab sections (Basics tab is inline HTML)
+├── css/style.css           # All styling including light/dark themes
 ├── js/
-│   ├── app.js             # Tab switching & theme toggle
+│   ├── app.js             # Tab switching, theme toggle, accordion control
 │   ├── sop-lab.js         # SOP iframe experiments & postMessage
 │   ├── cors-simulator.js  # CORS decision logic & visualization
 │   └── live-fetch.js      # Live fetch experiments with logging
