@@ -1605,6 +1605,31 @@
           <ol id="simCacheTimeline" class="timeline" aria-live="polite" aria-atomic="true"></ol>
           <p class="muted small">これはブラウザーの実測ではありません。実際のキャッシュ上限や早期削除は実装により異なり、OPTIONSの有無はDevToolsのNetworkで確認します。</p>
         </div>
+
+        <div class="card">
+          <h2>HTTPレスポンスキャッシュとVary</h2>
+          <p class="muted">プリフライトキャッシュとは別に、実レスポンスを再利用するHTTPキャッシュの条件を確認します。</p>
+          <div class="form-grid">
+            <div class="full"><label class="checkbox"><input id="simDynamicOrigin" type="checkbox" /> Originを許可リストと照合してACAOを動的に返す</label></div>
+            <div class="full"><label class="checkbox"><input id="simResponseCacheable" type="checkbox" checked /> レスポンスをHTTPキャッシュへ保存できる想定</label></div>
+            <div class="full"><label class="checkbox"><input id="simVaryOrigin" type="checkbox" /> Vary: Originを返す</label></div>
+          </div>
+          <div id="simVaryResult" class="advanced-result" aria-live="polite" aria-atomic="true"></div>
+          <p class="muted small">Varyは通常のHTTPキャッシュキーに関係します。Access-Control-Max-Ageとは別の仕組みです。</p>
+        </div>
+
+        <div class="card">
+          <h2>CORS許可とCookie送信の条件</h2>
+          <p class="muted">CORSが成功しても、Cookieの属性やブラウザー方針によってCookieが送られないことがあります。</p>
+          <div class="form-grid">
+            <div><label class="label" for="simSiteRelation">サイト関係</label><select id="simSiteRelation"><option value="unknown">不明</option><option value="sameSite">同一サイト</option><option value="crossSite">クロスサイト</option></select></div>
+            <div><label class="label" for="simCookieSameSite">CookieのSameSite</label><select id="simCookieSameSite"><option value="unknown">不明</option><option value="lax">Lax</option><option value="strict">Strict</option><option value="none">None</option></select></div>
+            <div class="full"><label class="checkbox"><input id="simCookieSecure" type="checkbox" /> CookieにSecure属性がある</label></div>
+            <div class="full"><label class="label" for="simThirdPartyCookies">第三者Cookie方針</label><select id="simThirdPartyCookies"><option value="unknown">不明・ブラウザー依存</option><option value="allowed">許可する想定</option><option value="blocked">ブロックする想定</option></select></div>
+          </div>
+          <div id="simCredentialResult" class="condition-list" aria-live="polite" aria-atomic="true"></div>
+          <p class="muted small">Domain、Path、有効期限、Cookieの保存状態なども必要です。このモデルだけで実際の送信は証明できません。</p>
+        </div>
       </div>
     </section>
 

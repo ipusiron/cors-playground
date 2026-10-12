@@ -87,6 +87,13 @@ function collectScenario(){
     responseHeaders: Q('simResponseHeaders').value,
     maxAge: boundedInteger('simMaxAge', 5),
     secondRequestAfter: boundedInteger('simSecondAfter', 0),
+    dynamicOrigin: Q('simDynamicOrigin').checked,
+    responseCacheable: Q('simResponseCacheable').checked,
+    varyOrigin: Q('simVaryOrigin').checked,
+    siteRelation: Q('simSiteRelation').value,
+    cookieSameSite: Q('simCookieSameSite').value,
+    cookieSecure: Q('simCookieSecure').checked,
+    thirdPartyCookies: Q('simThirdPartyCookies').value,
   });
 }
 
@@ -104,6 +111,13 @@ function applyScenario(scenario){
   Q('simResponseHeaders').value = safe.responseHeaders;
   Q('simMaxAge').value = String(safe.maxAge);
   Q('simSecondAfter').value = String(safe.secondRequestAfter);
+  Q('simDynamicOrigin').checked = safe.dynamicOrigin;
+  Q('simResponseCacheable').checked = safe.responseCacheable;
+  Q('simVaryOrigin').checked = safe.varyOrigin;
+  Q('simSiteRelation').value = safe.siteRelation;
+  Q('simCookieSameSite').value = safe.cookieSameSite;
+  Q('simCookieSecure').checked = safe.cookieSecure;
+  Q('simThirdPartyCookies').value = safe.thirdPartyCookies;
 }
 
 /**
@@ -262,6 +276,69 @@ function renderAdvanced(preflight, credentials){
     });
     timeline.appendChild(item);
   });
+
+  const vary = CorsCore.assessVaryOrigin({
+    dynamicOrigin: Q('simDynamicOrigin').checked,
+    cacheable: Q('simResponseCacheable').checked,
+    varyOrigin: Q('simVaryOrigin').checked,
+  });
+  const varyKeys = {
+    notCacheable: 'varyNotCacheable', staticOrigin: 'varyStaticOrigin',
+    varyPresent: 'varyPresent', varyMissing: 'varyMissing',
+  };
+  const varyOutput = Q('simVaryResult');
+  varyOutput.replaceChildren();
+  appendHeaderResult(
+    varyOutput, simText('varyHeading'), [simText(varyKeys[vary.status])],
+    vary.status === 'varyMissing' ? 'error' : (vary.status === 'varyPresent' ? 'readable' : 'unreadable'),
+  );
+}
+
+function renderCredentialConditions(decisionOk){
+  const result = CorsCore.explainCredentialConditions({
+    credentials: Q('simCred').checked,
+    corsAllowed: decisionOk,
+    siteRelation: Q('simSiteRelation').value,
+    sameSite: Q('simCookieSameSite').value,
+    secure: Q('simCookieSecure').checked,
+    thirdPartyCookies: Q('simThirdPartyCookies').value,
+  });
+  const labelKeys = {
+    credentials: 'credentialLabelCredentials', cors: 'credentialLabelCors', siteRelation: 'credentialLabelSiteRelation',
+    sameSite: 'credentialLabelSameSite', secure: 'credentialLabelSecure', thirdPartyCookies: 'credentialLabelThirdPartyCookies',
+    otherCookieRules: 'credentialLabelOtherCookieRules',
+  };
+  const valueKeys = {
+    'credentials:requested': 'credentialCredentialsRequested', 'credentials:notRequested': 'credentialCredentialsNotRequested',
+    'cors:allowed': 'credentialCorsAllowed', 'cors:blocked': 'credentialCorsBlocked',
+    'siteRelation:unknown': 'credentialSiteRelationUnknown', 'siteRelation:sameSite': 'credentialSiteRelationSameSite', 'siteRelation:crossSite': 'credentialSiteRelationCrossSite',
+    'sameSite:unknown': 'credentialSameSiteUnknown', 'sameSite:lax': 'credentialSameSiteLax', 'sameSite:strict': 'credentialSameSiteStrict', 'sameSite:none': 'credentialSameSiteNone',
+    'secure:present': 'credentialSecurePresent', 'secure:absent': 'credentialSecureAbsent',
+    'thirdPartyCookies:unknown': 'credentialThirdPartyCookiesUnknown', 'thirdPartyCookies:allowed': 'credentialThirdPartyCookiesAllowed', 'thirdPartyCookies:blocked': 'credentialThirdPartyCookiesBlocked',
+    'otherCookieRules:unknown': 'credentialOtherCookieRulesUnknown',
+  };
+  const outcomeKeys = {
+    notRequested: 'credentialOutcomeNotRequested', blockedByCors: 'credentialOutcomeBlockedByCors',
+    blockedByCookieConfig: 'credentialOutcomeBlockedByCookieConfig', blockedBySameSite: 'credentialOutcomeBlockedBySameSite',
+    blockedByPolicy: 'credentialOutcomeBlockedByPolicy', needsMoreEvidence: 'credentialOutcomeNeedsMoreEvidence',
+  };
+  const output = Q('simCredentialResult');
+  output.replaceChildren();
+  result.conditions.forEach((condition)=>{
+    const item = document.createElement('div');
+    item.className = 'condition-item';
+    const label = document.createElement('strong');
+    label.textContent = simText(labelKeys[condition.key]);
+    const value = document.createElement('span');
+    value.textContent = simText(valueKeys[`${condition.key}:${condition.status}`]);
+    item.append(label, value);
+    output.appendChild(item);
+  });
+  const outcome = document.createElement('div');
+  const blocked = result.outcome.startsWith('blocked');
+  outcome.className = `condition-item condition-outcome ${blocked ? 'blocked' : 'warning'}`;
+  outcome.textContent = simText(outcomeKeys[result.outcome]);
+  output.appendChild(outcome);
 }
 
 // ========================================
@@ -340,6 +417,7 @@ function doSimulate(){
     response: { acao: ACAO, acac: ACAC, acam: ACAM, acah: ACAH, aceh: Q('simACEH').value },
   });
   renderAdvanced(preflight, cred);
+  renderCredentialConditions(decisionOk);
 }
 
 // ========================================
@@ -373,6 +451,8 @@ Q('btnSimClearShare').addEventListener('click', ()=>{
   'simMethod', 'simContentType', 'simHeaders', 'simCred', 'simACAO', 'simACAC',
   'simACAM', 'simACAH', 'simACEH', 'simResponseHeaders', 'simMaxAge',
   'simSecondAfter', 'simSameRequest',
+  'simDynamicOrigin', 'simResponseCacheable', 'simVaryOrigin', 'simSiteRelation',
+  'simCookieSameSite', 'simCookieSecure', 'simThirdPartyCookies',
 ].forEach((id)=>{
   Q(id).addEventListener('input', doSimulate);
   Q(id).addEventListener('change', doSimulate);
@@ -400,6 +480,13 @@ Q('btnSimPresetSimple').addEventListener('click', ()=>{
   Q('simACAH').value = '';
   Q('simACEH').value = '';
   Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  Q('simDynamicOrigin').checked = false;
+  Q('simResponseCacheable').checked = true;
+  Q('simVaryOrigin').checked = false;
+  Q('simSiteRelation').value = 'unknown';
+  Q('simCookieSameSite').value = 'unknown';
+  Q('simCookieSecure').checked = false;
+  Q('simThirdPartyCookies').value = 'unknown';
   doSimulate();
 });
 
@@ -423,6 +510,13 @@ Q('btnSimPresetJSON').addEventListener('click', ()=>{
   Q('simACAH').value = 'content-type';
   Q('simACEH').value = 'X-Trace-Id';
   Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id';
+  Q('simDynamicOrigin').checked = true;
+  Q('simResponseCacheable').checked = true;
+  Q('simVaryOrigin').checked = true;
+  Q('simSiteRelation').value = 'unknown';
+  Q('simCookieSameSite').value = 'unknown';
+  Q('simCookieSecure').checked = false;
+  Q('simThirdPartyCookies').value = 'unknown';
   doSimulate();
 });
 
@@ -446,6 +540,13 @@ Q('btnSimPresetAuth').addEventListener('click', ()=>{
   Q('simACAH').value = 'authorization';
   Q('simACEH').value = '*';
   Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  Q('simDynamicOrigin').checked = true;
+  Q('simResponseCacheable').checked = true;
+  Q('simVaryOrigin').checked = true;
+  Q('simSiteRelation').value = 'crossSite';
+  Q('simCookieSameSite').value = 'none';
+  Q('simCookieSecure').checked = true;
+  Q('simThirdPartyCookies').value = 'allowed';
   doSimulate();
 });
 

@@ -120,6 +120,33 @@ test('preflight cache timeline models hit, expiry, changed conditions, and no-pr
   assert.equal(core.modelPreflightCache({ preflightRequired: true, maxAge: '', secondRequestAfter: 4 }).maxAge, 5);
 });
 
+test('Vary Origin assessment separates HTTP caching from preflight caching', () => {
+  assert.equal(core.assessVaryOrigin({ dynamicOrigin: true, cacheable: true, varyOrigin: false }).status, 'varyMissing');
+  assert.equal(core.assessVaryOrigin({ dynamicOrigin: true, cacheable: true, varyOrigin: true }).status, 'varyPresent');
+  assert.equal(core.assessVaryOrigin({ dynamicOrigin: false, cacheable: true, varyOrigin: false }).status, 'staticOrigin');
+  assert.equal(core.assessVaryOrigin({ dynamicOrigin: true, cacheable: false, varyOrigin: false }).status, 'notCacheable');
+});
+
+test('credential explanation never treats CORS success as proof that a cookie was sent', () => {
+  const complete = core.explainCredentialConditions({
+    credentials: true, corsAllowed: true, siteRelation: 'crossSite', sameSite: 'none',
+    secure: true, thirdPartyCookies: 'allowed',
+  });
+  assert.equal(complete.outcome, 'needsMoreEvidence');
+  assert.equal(core.explainCredentialConditions({ credentials: false, corsAllowed: true }).outcome, 'notRequested');
+  assert.equal(core.explainCredentialConditions({ credentials: true, corsAllowed: false }).outcome, 'blockedByCors');
+  assert.equal(core.explainCredentialConditions({
+    credentials: true, corsAllowed: true, siteRelation: 'crossSite', sameSite: 'strict', secure: true,
+  }).outcome, 'blockedBySameSite');
+  assert.equal(core.explainCredentialConditions({
+    credentials: true, corsAllowed: true, siteRelation: 'crossSite', sameSite: 'none', secure: false,
+  }).outcome, 'blockedByCookieConfig');
+  assert.equal(core.explainCredentialConditions({
+    credentials: true, corsAllowed: true, siteRelation: 'crossSite', sameSite: 'none', secure: true,
+    thirdPartyCookies: 'blocked',
+  }).outcome, 'blockedByPolicy');
+});
+
 test('share scenario round-trips only the strict allowlisted schema', () => {
   const scenario = {
     method: 'POST', contentType: 'application/json', requestHeaders: 'X-Demo', credentials: false,
@@ -128,8 +155,26 @@ test('share scenario round-trips only the strict allowlisted schema', () => {
   };
   const fragment = core.encodeScenario(scenario);
   assert.match(fragment, /^cors=v1\.[0-9A-Za-z_-]+$/);
-  assert.deepEqual(core.decodeScenario(`#${fragment}`), scenario);
+  assert.deepEqual(core.decodeScenario(`#${fragment}`), {
+    ...scenario, dynamicOrigin: false, responseCacheable: true, varyOrigin: false,
+    siteRelation: 'unknown', cookieSameSite: 'unknown', cookieSecure: false, thirdPartyCookies: 'unknown',
+  });
   assert.doesNotMatch(fragment, /X-Demo|X-Trace/);
+});
+
+test('old v1 share links receive safe defaults for phase 3 fields', () => {
+  const compact = { m: 'GET', ct: '', rh: '', cr: false, ao: '*', ac: '', am: '', ah: '', eh: '', sh: '', ma: 5, sd: 1 };
+  const payload = Buffer.from(JSON.stringify(compact)).toString('base64url');
+  const decoded = core.decodeScenario(`#cors=v1.${payload}`);
+  assert.deepEqual({
+    dynamicOrigin: decoded.dynamicOrigin, responseCacheable: decoded.responseCacheable,
+    varyOrigin: decoded.varyOrigin, siteRelation: decoded.siteRelation,
+    cookieSameSite: decoded.cookieSameSite, cookieSecure: decoded.cookieSecure,
+    thirdPartyCookies: decoded.thirdPartyCookies,
+  }, {
+    dynamicOrigin: false, responseCacheable: true, varyOrigin: false, siteRelation: 'unknown',
+    cookieSameSite: 'unknown', cookieSecure: false, thirdPartyCookies: 'unknown',
+  });
 });
 
 test('share scenario rejects missing, unknown, oversized, and invalid fields', () => {

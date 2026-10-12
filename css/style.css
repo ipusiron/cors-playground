@@ -277,9 +277,20 @@ iframe{
 .exchange-step.allowed{border-left:4px solid var(--success)}
 .exchange-step.not-sent{border-left:4px solid var(--warn)}
 .exchange-outcome{margin:0; padding:10px 12px; border-radius:10px; background:var(--accent-weak); font-weight:700}
+.condition-list{display:grid; gap:8px; margin-top:12px}
+.condition-item{
+  display:grid; grid-template-columns:minmax(8rem, .8fr) minmax(0, 1.2fr); gap:10px;
+  border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:10px 12px;
+}
+.condition-item strong,.condition-item span{overflow-wrap:anywhere}
+.condition-item.blocked{border-left:4px solid var(--error)}
+.condition-item.warning{border-left:4px solid var(--warn)}
+.condition-item.allowed{border-left:4px solid var(--success)}
+.condition-outcome{font-weight:700; background:var(--accent-weak)}
 @media (max-width:599px){
   .exchange-step{grid-template-columns:1fr}
   .exchange-step-number{width:1.75rem; height:1.75rem}
+  .condition-item{grid-template-columns:1fr}
 }
 
 .log{margin-top:8px}

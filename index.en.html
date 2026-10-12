@@ -176,6 +176,29 @@
           <ol id="simCacheTimeline" class="timeline" aria-live="polite" aria-atomic="true"></ol>
           <p class="muted small">This is not a browser measurement. Implementations can impose caps or evict entries early. Confirm OPTIONS in DevTools Network.</p>
         </article>
+        <article class="card">
+          <h2>HTTP response cache and Vary</h2>
+          <p class="muted">Inspect normal HTTP response caching separately from the preflight cache.</p>
+          <div class="form-grid">
+            <div class="full"><label class="checkbox"><input id="simDynamicOrigin" type="checkbox" /> Select ACAO dynamically from an Origin allowlist</label></div>
+            <div class="full"><label class="checkbox"><input id="simResponseCacheable" type="checkbox" checked /> Assume the response can be stored by an HTTP cache</label></div>
+            <div class="full"><label class="checkbox"><input id="simVaryOrigin" type="checkbox" /> Return Vary: Origin</label></div>
+          </div>
+          <div id="simVaryResult" class="advanced-result" aria-live="polite" aria-atomic="true"></div>
+          <p class="muted small">Vary affects a normal HTTP cache key. It is separate from Access-Control-Max-Age.</p>
+        </article>
+        <article class="card">
+          <h2>CORS permission and cookie conditions</h2>
+          <p class="muted">Even when CORS succeeds, cookie attributes or browser policy may prevent a cookie from being sent.</p>
+          <div class="form-grid">
+            <div><label class="label" for="simSiteRelation">Site relationship</label><select id="simSiteRelation"><option value="unknown">Unknown</option><option value="sameSite">Same-site</option><option value="crossSite">Cross-site</option></select></div>
+            <div><label class="label" for="simCookieSameSite">Cookie SameSite</label><select id="simCookieSameSite"><option value="unknown">Unknown</option><option value="lax">Lax</option><option value="strict">Strict</option><option value="none">None</option></select></div>
+            <div class="full"><label class="checkbox"><input id="simCookieSecure" type="checkbox" /> Cookie has the Secure attribute</label></div>
+            <div class="full"><label class="label" for="simThirdPartyCookies">Third-party cookie policy</label><select id="simThirdPartyCookies"><option value="unknown">Unknown or browser-dependent</option><option value="allowed">Assume allowed</option><option value="blocked">Assume blocked</option></select></div>
+          </div>
+          <div id="simCredentialResult" class="condition-list" aria-live="polite" aria-atomic="true"></div>
+          <p class="muted small">Domain, Path, expiry, and stored-cookie state also matter. This model cannot prove actual transmission.</p>
+        </article>
       </div>
     </section>
 
