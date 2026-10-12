@@ -75,3 +75,74 @@ test('combined safelisted value size over 1024 bytes triggers preflight', () => 
   }));
   assert.equal(core.needsPreflight('GET', headers), true);
 });
+
+test('response header exposure follows safelist, ACEH, credentials, and forbidden names', () => {
+  const open = core.responseHeaderExposure({
+    credentials: false,
+    responseHeaders: 'Content-Type, X-Trace, Set-Cookie',
+    exposeHeaders: '*',
+  });
+  assert.deepEqual(open.readable.map((entry) => entry.name), ['Content-Type', 'X-Trace']);
+  assert.deepEqual(open.unreadable, [{ name: 'Set-Cookie', reason: 'forbidden' }]);
+
+  const credentialed = core.responseHeaderExposure({
+    credentials: true,
+    responseHeaders: 'Content-Type, X-Trace, Set-Cookie2',
+    exposeHeaders: '*',
+  });
+  assert.deepEqual(credentialed.readable.map((entry) => entry.name), ['Content-Type']);
+  assert.deepEqual(credentialed.unreadable.map((entry) => entry.reason), ['credentialWildcardLiteral', 'forbidden']);
+
+  const explicit = core.responseHeaderExposure({
+    credentials: true,
+    responseHeaders: 'X-Trace',
+    exposeHeaders: 'x-trace',
+  });
+  assert.deepEqual(explicit.readable, [{ name: 'X-Trace', reason: 'explicit' }]);
+});
+
+test('invalid ACEH syntax exposes only safelisted response headers', () => {
+  const result = core.responseHeaderExposure({
+    credentials: false,
+    responseHeaders: 'Content-Length, X-Trace',
+    exposeHeaders: 'X-Trace, Bad Name',
+  });
+  assert.deepEqual(result.invalidExposeHeaders, ['Bad Name']);
+  assert.deepEqual(result.readable.map((entry) => entry.name), ['Content-Length']);
+  assert.deepEqual(result.unreadable.map((entry) => entry.name), ['X-Trace']);
+});
+
+test('preflight cache timeline models hit, expiry, changed conditions, and no-preflight cases', () => {
+  assert.equal(core.modelPreflightCache({ preflightRequired: true, maxAge: 600, secondRequestAfter: 30 }).reused, true);
+  assert.equal(core.modelPreflightCache({ preflightRequired: true, maxAge: 30, secondRequestAfter: 30 }).reused, false);
+  assert.equal(core.modelPreflightCache({ preflightRequired: true, maxAge: 600, secondRequestAfter: 1, sameRequest: false }).events[1].reason, 'conditionsChanged');
+  assert.equal(core.modelPreflightCache({ preflightRequired: false, maxAge: 600, secondRequestAfter: 1 }).events[1].reason, 'notRequired');
+  assert.equal(core.modelPreflightCache({ preflightRequired: true, maxAge: '', secondRequestAfter: 4 }).maxAge, 5);
+});
+
+test('share scenario round-trips only the strict allowlisted schema', () => {
+  const scenario = {
+    method: 'POST', contentType: 'application/json', requestHeaders: 'X-Demo', credentials: false,
+    acao: '*', acac: '', acam: 'POST', acah: 'Content-Type, X-Demo', aceh: 'X-Trace',
+    responseHeaders: 'Content-Type, X-Trace', maxAge: 600, secondRequestAfter: 30,
+  };
+  const fragment = core.encodeScenario(scenario);
+  assert.match(fragment, /^cors=v1\.[0-9A-Za-z_-]+$/);
+  assert.deepEqual(core.decodeScenario(`#${fragment}`), scenario);
+  assert.doesNotMatch(fragment, /X-Demo|X-Trace/);
+});
+
+test('share scenario rejects missing, unknown, oversized, and invalid fields', () => {
+  const valid = {
+    method: 'GET', contentType: '', requestHeaders: '', credentials: false,
+    acao: '*', acac: '', acam: '', acah: '', aceh: '', responseHeaders: '', maxAge: 5, secondRequestAfter: 1,
+  };
+  assert.throws(() => core.encodeScenario({ ...valid, method: 'TRACE' }), /invalid:method/);
+  assert.throws(() => core.encodeScenario({ ...valid, requestHeaders: 'x'.repeat(513) }), /invalid:requestHeaders/);
+  assert.throws(() => core.encodeScenario({ ...valid, acao: 'ok\nInjected' }), /invalid:acao/);
+  assert.throws(() => core.decodeScenario('#cors=v1.not_base64!'), /invalidEncoding/);
+
+  const compact = { m: 'GET', ct: '', rh: '', cr: false, ao: '*', ac: '', am: '', ah: '', eh: '', sh: '', ma: 5, sd: 1, url: 'https://secret.example' };
+  const payload = Buffer.from(JSON.stringify(compact)).toString('base64url');
+  assert.throws(() => core.decodeScenario(`#cors=v1.${payload}`), /unknownField/);
+});
