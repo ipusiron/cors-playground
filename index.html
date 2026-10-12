@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CORS Playground</title>
 
-  <!-- Security Headers -->
-  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline';
+    script-src 'self';
     style-src 'self' 'unsafe-inline';
     connect-src 'self' https://httpbin.org https://raw.githubusercontent.com https://example.com;
     img-src 'self' data:;
@@ -20,12 +18,11 @@
     form-action 'self';
     upgrade-insecure-requests;
   " />
-  <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()" />
-
   <!-- Prevent favicon 404 error -->
   <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
 
   <link rel="stylesheet" href="css/style.css" />
+  <script src="js/language-init.js"></script>
 </head>
 <body>
   <header class="app-header">
@@ -34,6 +31,7 @@
       <p class="subtitle">同一オリジン・CORS・プリフライトを見て、試して、理解する教育ツールです</p>
     </div>
     <div class="header-actions">
+      <a class="btn ghost language-link" href="index.en.html?lang=en" hreflang="en">English</a>
       <button id="themeToggle" class="btn" aria-label="テーマ切替">🌙</button>
     </div>
   </header>
@@ -61,10 +59,10 @@
       <div class="panel-grid single-column">
         <!-- DOM解説 -->
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('basics-dom')">
+          <button type="button" class="accordion-header" data-accordion-target="basics-dom" aria-controls="basics-dom" aria-expanded="false">
             <h2>📄 DOM（Document Object Model）とは？</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="basics-dom" class="accordion-content">
           <p>
             <strong>DOM</strong>は、Webページの中身を「木構造」として表現したものです。
@@ -110,10 +108,10 @@
 
         <!-- オリジン解説 -->
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('basics-origin')">
+          <button type="button" class="accordion-header" data-accordion-target="basics-origin" aria-controls="basics-origin" aria-expanded="false">
             <h2>🌐 オリジン（Origin）とは？</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="basics-origin" class="accordion-content">
           <p>
             <strong>オリジン</strong>は、Webサイトを識別するための「住所」のようなものです。
@@ -291,10 +289,10 @@
 
         <!-- iframe解説 -->
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('basics-iframe')">
+          <button type="button" class="accordion-header" data-accordion-target="basics-iframe" aria-controls="basics-iframe" aria-expanded="false">
             <h2>🖼️ iframe（インラインフレーム）とは？</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="basics-iframe" class="accordion-content">
           <p>
             <strong>iframe</strong>は、Webページの中に「別のWebページ」を埋め込むための仕組みです。
@@ -329,10 +327,10 @@
 
         <!-- セキュリティモデル -->
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('basics-security')">
+          <button type="button" class="accordion-header" data-accordion-target="basics-security" aria-controls="basics-security" aria-expanded="false">
             <h2>🔒 なぜブラウザーにセキュリティ制限が必要？</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="basics-security" class="accordion-content">
           <p>
             もしセキュリティ制限がなかったら...
@@ -418,7 +416,7 @@
           <h2>SOP 実験</h2>
 
           <!-- ヘルプトグルボタン -->
-          <button class="help-toggle" onclick="toggleHelp('sop-help')">【復習】SOPとは？</button>
+          <button type="button" class="help-toggle" data-help-target="sop-help" aria-controls="sop-help" aria-expanded="false">【復習】SOPとは？</button>
 
           <!-- ヘルプパネル -->
           <div id="sop-help" class="help-panel">
@@ -609,7 +607,7 @@
           <h2>postMessage デモ</h2>
 
           <!-- ヘルプトグルボタン -->
-          <button class="help-toggle" onclick="toggleHelp('pm-help')">【解説】postMessageとは？</button>
+          <button type="button" class="help-toggle" data-help-target="pm-help" aria-controls="pm-help" aria-expanded="false">【解説】postMessageとは？</button>
 
           <!-- ヘルプパネル -->
           <div id="pm-help" class="help-panel">
@@ -685,7 +683,7 @@
 
           <div class="log">
             <div class="log-head">受信ログ</div>
-            <pre id="pmLog" class="pre"></pre>
+            <pre id="pmLog" class="pre" aria-live="polite" aria-atomic="false"></pre>
           </div>
 
           <div class="key-concept">
@@ -739,10 +737,10 @@
       <!-- CORS解説アコーディオン -->
       <div class="panel-grid single-column">
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('cors-about')">
+          <button type="button" class="accordion-header" data-accordion-target="cors-about" aria-controls="cors-about" aria-expanded="false">
             <h2>📖 CORS（Cross-Origin Resource Sharing）とは？</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="cors-about" class="accordion-content">
             <div class="visual-box cors-flow-diagram">
               <div class="visual-title">CORSの基本的な流れ</div>
@@ -799,10 +797,9 @@
 
             <div class="key-concept">
               <strong>🎯 重要概念：</strong>
-              CORSはサーバー側の「許可証」です。ブラウザーは勝手にリクエストを送りますが、
-              サーバーが適切なヘッダーを返さないと、<strong>ブラウザーがレスポンスをブロック</strong>します。
-              CORSのチェックは<strong>ブラウザー</strong>が行います。リクエスト自体はサーバーに届きますが、
-              <strong>レスポンスを読み取れるかどうかはブラウザーが判断</strong>します。
+              CORSはサーバーがクロスオリジンの読み取りを許可する仕組みです。
+              シンプルリクエストは本リクエストを先に送りますが、プリフライトが必要な場合はOPTIONSによる確認が先です。
+              プリフライトが拒否されると本リクエストは送られません。
             </div>
           </div>
         </div>
@@ -811,10 +808,10 @@
       <!-- シンプルリクエストとプリフライトリクエストの解説アコーディオン -->
       <div class="panel-grid single-column">
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('request-types')">
+          <button type="button" class="accordion-header" data-accordion-target="request-types" aria-controls="request-types" aria-expanded="false">
             <h2>🔄 シンプルリクエストとプリフライトリクエスト</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="request-types" class="accordion-content">
             <p>
               CORSリクエストには<strong>2つの種類</strong>があります。
@@ -961,8 +958,8 @@
             <div class="key-concept">
               <strong>💡 重要ポイント：</strong>
               <ul style="margin:8px 0; padding-left:20px; line-height:1.7;">
-                <li><strong>シンプルリクエスト</strong>は条件が厳しく、実際のWebアプリでは<strong>ほとんどプリフライト</strong>が発生します</li>
-                <li><strong>ブラウザーが</strong>プリフライト（OPTIONS）を<strong>自動的に送る</strong>ため、開発者が意識する必要はありません</li>
+                <li><strong>シンプルリクエスト</strong>の条件は、メソッド・ヘッダー名・ヘッダー値のすべてで決まります</li>
+                <li><strong>ブラウザーが</strong>プリフライト（OPTIONS）を自動送信し、サーバー側はOPTIONSへ正しく応答する必要があります</li>
                 <li>プリフライトで許可されない場合、<strong>本リクエストは送信されません</strong></li>
                 <li>DevToolsのNetworkタブで<code>OPTIONS</code>メソッドを確認すると、プリフライトの詳細がわかります</li>
               </ul>
@@ -974,10 +971,10 @@
       <!-- 用語集アコーディオン -->
       <div class="panel-grid single-column">
         <div class="card accordion-card">
-          <div class="accordion-header" onclick="toggleAccordion('cors-glossary')">
+          <button type="button" class="accordion-header" data-accordion-target="cors-glossary" aria-controls="cors-glossary" aria-expanded="false">
             <h2>📚 用語集：CORS用語の完全ガイド</h2>
             <span class="accordion-icon">▼</span>
-          </div>
+          </button>
           <div id="cors-glossary" class="accordion-content">
             <p class="muted">
               CORSの学習でよく出てくる用語を整理しました。実験を進める前に、ここで確認しておくとスムーズです。
@@ -1551,10 +1548,10 @@
 
         <div class="card">
           <h2>結果（可視フロー）</h2>
-          <div id="simFlow" class="flow"></div>
+          <div id="simFlow" class="flow" aria-live="polite"></div>
           <div class="log">
             <div class="log-head">解説</div>
-            <pre id="simExplain" class="pre"></pre>
+            <pre id="simExplain" class="pre" aria-live="polite" aria-atomic="true"></pre>
           </div>
         </div>
       </div>
@@ -1574,9 +1571,9 @@
       </div>
 
       <div class="key-concept">
-        <strong>⚠️ 重要：</strong> CORSエラーは「リクエストが送られなかった」のではなく、
-        「<strong>サーバーからレスポンスは返ってきたが、ブラウザーがブロックした</strong>」ことを意味します。
-        サーバーのログには記録が残っています！
+        <strong>⚠️ 重要：</strong> <code>fetch()</code> が <code>TypeError</code> で失敗したという情報だけでは、
+        CORS、CSP、DNS、TLS、ネットワーク障害などの原因を一意に判定できません。
+        また、ブラウザー側の表示だけでは、対象サーバーへリクエストが到達したかどうかも断定できません。
       </div>
 
       <!-- プリセット実験ガイド -->
@@ -1700,13 +1697,13 @@
                   <h4>🎯 期待される結果</h4>
                   <div class="result-badges">
                     <span class="result-badge error">✗ fetch失敗</span>
-                    <span class="result-badge error">✗ CORSエラー</span>
+                    <span class="result-badge warn">原因はDevToolsで確認</span>
                   </div>
                   <p class="result-explanation-text">
                     <strong>💡 学べるポイント：</strong>
                     <code>Authorization</code>ヘッダーによりプリフライトが発生しますが、
-                    example.comはCORSを許可していないため、プリフライト段階でブロックされます。
-                    <strong>重要：リクエスト自体はサーバーに届いています</strong>が、ブラウザーがレスポンスへのアクセスをブロックします。
+                    プリフライトが拒否された場合はOPTIONSだけが送られ、本リクエストは送られません。
+                    Fetch APIのエラーだけではCORS拒否と通信障害を区別できないため、DevToolsのNetworkタブで確認します。
                   </p>
                 </div>
 
@@ -1802,7 +1799,8 @@
         <div class="card">
           <h2>リクエスト設定（手動実験）</h2>
           <p class="muted">
-            上のプリセットボタンで自動入力するか、ここから手動で設定して実験できます。
+            上のプリセットボタンで自動入力するか、許可済みの接続先を手動で設定して実験できます。
+            許可済み以外のオリジンは、このページのCSPにより通信前に停止します。
           </p>
 
           <div class="form-grid">
@@ -1863,7 +1861,7 @@
           <h2>結果ログ</h2>
           <div class="log">
             <div class="log-head">Request / Response</div>
-            <pre id="liveLog" class="pre"></pre>
+            <pre id="liveLog" class="pre" aria-live="polite" aria-atomic="false"></pre>
           </div>
         </div>
       </div>
@@ -1876,6 +1874,8 @@
     </div>
   </footer>
 
+  <script src="js/cors-core.js"></script>
+  <script src="js/messages.js"></script>
   <script src="js/app.js"></script>
   <script src="js/sop-lab.js"></script>
   <script src="js/cors-simulator.js"></script>

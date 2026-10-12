@@ -19,8 +19,7 @@
 // ========================================
 
 /**
- * DOMエ
-を取得する短縮ヘルパー
+ * DOM要素を取得する短縮ヘルパー
  * @param {string} id - 要素ID
  * @returns {HTMLElement}
  *
@@ -29,6 +28,7 @@
  * - パフォーマンス: getElementById() は高速（O(1)ハッシュマップ）
  */
 const Q = (id)=>document.getElementById(id);
+const simText = CorsText.t;
 
 // ========================================
 // CORS 仕様定数
@@ -67,7 +67,8 @@ const SAFE_HEADERS = new Set([
   'accept',
   'accept-language',
   'content-language',
-  'content-type'  // ただし特定の値のみセーフ（SAFE_CONTENT_TYPES参照）
+  'content-type', // ただし特定の値のみセーフ（SAFE_CONTENT_TYPES参照）
+  'range'
 ]);
 
 /**
@@ -271,7 +272,7 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
   if(!SAFE_METHODS.has(m)){
     // 非セーフメソッド: ACAM で許可されているか確認
     const allowed = parseHeaderList(respACAM).map(x=>x.toUpperCase());
-    if(allowed.length === 0 || !allowed.includes(m)){
+    if(allowed.length === 0 || !(allowed.includes(m) || (!cred && allowed.includes('*')))){
       ok = false;
       explain.push(`NG: メソッド ${m} は ACAM で許可されていない。`);
     }else{
@@ -281,7 +282,7 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
 
   // ========== ACAH (ヘッダー) チェック ==========
   // 非セーフヘッダーをフィルタリング
-  const nonSafeReqHeaders = parseHeaderList(Q('simHeaders').value)
+  const nonSafeReqHeaders = reqHeaders
     .map(norm)
     .filter(h=>!SAFE_HEADERS.has(h));
 
@@ -290,7 +291,10 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
     const allowedH = parseHeaderList(respACAH).map(norm);
 
     // 差分検出: リクエストヘッダーのうち、許可リストにないものを抽出
-    const missing = nonSafeReqHeaders.filter(h=>!allowedH.includes(h));
+    const missing = nonSafeReqHeaders.filter(h=>{
+      if(allowedH.includes(h)) return false;
+      return !(h !== 'authorization' && !cred && allowedH.includes('*'));
+    });
 
     if(missing.length){
       ok = false;
@@ -301,6 +305,10 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
   }
 
   return {ok, explain};
+}
+
+function formatCoreNote(note){
+  return simText(note.key, note.values);
 }
 
 // ========================================
@@ -322,13 +330,13 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
  * - ユーザーが視覚的に理解しやすい
  *
  * @dom_manipulation
- * - innerHTML='' でクリア
+ * - replaceChildren()でクリア
  * - createElement + appendChild による動的生成
  * - textContent でXSS防止
  */
 function renderFlow({simple, preflight, decisionOk, notes}){
   const flow = Q('simFlow');
-  flow.innerHTML = ''; // 既存の内容をクリア
+  flow.replaceChildren(); // 既存の内容をクリア
 
   /**
    * ノード要素を追加するヘルパー
@@ -343,9 +351,9 @@ function renderFlow({simple, preflight, decisionOk, notes}){
   };
 
   // 3段階のフローをレンダリング
-  add(`1) Simple Request 判定 → ${simple ? 'YES' : 'NO'}`, simple ? 'ok' : 'warn');
-  add(`2) プリフライト要否 → ${preflight ? 'YES (OPTIONS 実施)' : 'NO'}`, preflight ? 'warn' : 'ok');
-  add(`3) 最終可否 → ${decisionOk ? 'ALLOW' : 'BLOCK'}`, decisionOk ? 'ok' : 'ng');
+  add(simText('simSimple', { result: simple ? 'YES' : 'NO' }), simple ? 'ok' : 'warn');
+  add(simText('simPreflight', { result: preflight ? simText('simPreflightYes') : 'NO' }), preflight ? 'warn' : 'ok');
+  add(simText('simDecision', { result: decisionOk ? 'ALLOW' : 'BLOCK' }), decisionOk ? 'ok' : 'ng');
 
   // 詳細解説の表示
   const exp = Q('simExplain');
@@ -377,6 +385,8 @@ function doSimulate(){
   const method = Q('simMethod').value.toUpperCase();
   const ct = Q('simContentType').value;
   const headers = parseHeaderList(Q('simHeaders').value).map(norm);
+  const requestHeaders = headers.map((name)=>({ name, value: '' }));
+  if(ct) requestHeaders.push({ name: 'Content-Type', value: ct });
   const cred = Q('simCred').checked;
 
   // 現在のページのオリジン（シミュレーション用）
@@ -389,18 +399,31 @@ function doSimulate(){
   const ACAH = Q('simACAH').value;
 
   // ===== 判定実行 =====
-  const simple = isSimpleRequest(method, ct, headers);
-  const preflight = needsPreflight(method, ct, headers);
-  const {ok: decisionOk, explain} = finalDecision(origin, cred, method, headers, ACAO, ACAC, ACAM, ACAH);
+  const preflight = CorsCore.needsPreflight(method, requestHeaders);
+  const simple = !preflight;
+  const decision = CorsCore.finalDecision({
+    origin,
+    credentials: cred,
+    method,
+    requestHeaders,
+    response: { acao: ACAO, acac: ACAC, acam: ACAM, acah: ACAH },
+  });
+  const decisionOk = decision.ok;
+  const explain = decision.notes.map(formatCoreNote);
 
   // ===== 解説文生成 =====
   const notes = [];
-  notes.push(`Simple Request 条件: method=${method} ct=${ct||'(未)'} headers=[${headers.join(', ')}] → ${simple?'満たす':'満たさない'}`);
+  notes.push(simText('simCondition', {
+    method,
+    contentType: ct || simText('unspecified'),
+    headers: headers.join(', '),
+    result: simple ? simText('simConditionYes') : simText('simConditionNo'),
+  }));
 
   if(preflight){
-    notes.push('プリフライト必要: 非セーフ条件が含まれるため OPTIONS で事前照会が行われる。');
+    notes.push(simText('simPreflightNeeded'));
   }else{
-    notes.push('プリフライト不要: Simple Request 条件を満たす。');
+    notes.push(simText('simPreflightNotNeeded'));
   }
 
   notes.push(''); // 空行

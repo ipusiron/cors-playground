@@ -37,6 +37,8 @@ hub: true
 
 # CORS Playground - SOP・CORS・プリフライトの学習ツール
 
+[English](README.en.md) · 日本語
+
 ![GitHub Repo stars](https://img.shields.io/github/stars/ipusiron/cors-playground?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/ipusiron/cors-playground?style=social)
 ![GitHub last commit](https://img.shields.io/github/last-commit/ipusiron/cors-playground)
@@ -51,17 +53,19 @@ hub: true
 
 👉 **[https://ipusiron.github.io/cors-playground/](https://ipusiron.github.io/cors-playground/)**
 
+ルートURLの初期言語は、`?lang=ja|en`、保存済みの選択、ブラウザー言語の順で決まります。`index.html`または`index.en.html`を直接開いた場合は、その文書の言語を維持します。
+
 ブラウザーで直接お試しいただけます。
 
 ---
 
 ## 📸 スクリーンショット
 
->![sandboxed iframeでのSOP実験](assets/screenshot.png)
->*sandboxed iframeでのSOP実験*
+>![CORS判定シミュレーター](assets/screenshot.png)
+>*プリフライト要否と最終判定を根拠付きで表示*
 >
->![任意のCORSヘッダーを返すサーバーでライブFetch実験](assets/screenshot2.png)
->*任意のCORSヘッダーを返すサーバーでライブFetch実験*
+>![CSPで許可されていない接続先の説明](assets/screenshot2.png)
+>*CSPによる事前拒否をCORSエラーと区別*
 
 ---
 
@@ -69,7 +73,7 @@ hub: true
 このツールは、次のような疑問を体験的に理解することを目的としています。
 
 - 「同一オリジンポリシーって、実際どんな制約をしているのか？」
-- 「なぜ fetch() が失敗しても、サーバーには届いているのか？」
+- 「fetch() の失敗だけでは、なぜCORS・CSP・通信障害を区別できないのか？」
 - 「プリフライトリクエスト（OPTIONS）は、いつ・なぜ送られるのか？」
 - 「`Access-Control-Allow-Origin` や `Credentials` の関係って、どう整理すればいいのか？」
 
@@ -109,14 +113,18 @@ hub: true
 
 ---
 
-## 🧩 3つのタブ構成
+## 🧩 4つのタブ構成
 
-### 1. **SOP Lab**
+### 1. **基礎知識**
+- DOM、オリジン、iframe、SOPが必要な理由を順番に確認。
+- アコーディオンはキーボード操作と読み上げに対応。
+
+### 2. **SOP Lab**
 - `iframe` と `sandbox` 属性を使い、**同一オリジン／異オリジン** の違いを体感。
 - `postMessage` による安全な越境通信も確認可能。
 - 「見えるけど触れない」── SOPの本質をUIで実感。
 
-### 2. **CORS Decision Simulator**
+### 3. **CORS Decision Simulator**
 - **アコーディオン形式の解説**：CORS基礎、用語集、シンプルリクエスト/プリフライトの詳細説明を収録
 - **段階的実験ガイド**：3つのプリセット（Simple/JSON/Authorization）を段階的に試せる
   - 各実験ステップに詳細な説明とプリセットボタンを配置
@@ -126,12 +134,13 @@ hub: true
 - **判定結果**：シンプルリクエスト判定 → プリフライト要否 → 最終可否を **フローチャート形式** で視覚化
 - 各判定結果には詳細な根拠説明が表示される
 
-### 3. **Live Fetch Lab**
+### 4. **Live Fetch Lab**
 - **段階的実験ガイド**：3つのプリセットで実際のCORS挙動を体験
   - 実験1：✅ CORS許可サーバー（`https://raw.githubusercontent.com/...`）
   - 実験2：🚫 CORS拒否サーバー（`https://example.com/`）
   - 実験3：🧪 カスタムCORSヘッダー（`https://httpbin.org/response-headers?...`）
-- **実行ログ**：fetch実行後、成功/失敗、レスポンスヘッダー、プリフライト発生有無を詳細にログ表示
+- **実行ログ**：fetch実行後、成功／失敗、レスポンスヘッダー、プリフライト推定を表示
+- **原因の区別**：CSP拒否は通信前に明示し、Fetch APIだけでCORSと通信障害を断定しない
 - **DevTools連携推奨**：ブラウザーのNetworkタブでOPTIONSリクエストを観察しながら学習可能
 - **セキュリティ機能**：http/https以外のスキーム（file:, javascript:等）は自動ブロック
 
@@ -243,8 +252,8 @@ hub: true
 - Webセキュリティの**根幹ルール**であり、Webの"安全な壁"
 
 **SOPによる主な制限：**
-1. **クロスオリジンへのリクエスト送信**
-   - `fetch()` や `XMLHttpRequest` でクロスオリジンにリクエストを送る際、サーバーがCORSヘッダーで許可しない限りレスポンスがブロックされる
+1. **クロスオリジン応答の読み取り**
+   - `fetch()` や `XMLHttpRequest`では、サーバーがCORSヘッダーで許可しない限り、JavaScriptから応答を読み取れない。プリフライトの有無により、本リクエストが送られるかどうかは異なる
 
 2. **frame内のクロスオリジンページへのアクセス**
    - `<iframe>` 内に異なるオリジンのページを読み込んだ場合、親ページから `contentDocument` などでDOMにアクセスできない
@@ -262,11 +271,13 @@ hub: true
 ### 🔸 シンプルリクエスト（Simple Request）の条件
 - メソッド：`GET`, `HEAD`, `POST`
 - Content-Type：`text/plain`, `application/x-www-form-urlencoded`, `multipart/form-data`
-- 付加ヘッダー：セーフリストのみ（`Accept`, `Content-Language`, など）
+- 付加ヘッダー：値も条件を満たす`Accept`、`Accept-Language`、`Content-Language`、`Content-Type`、単一範囲の`Range`
+- 値ごとの上限は128バイト。セーフリスト候補の値の合計が1,024バイトを超えた場合も対象外
 
 ### 🔸 プリフライトリクエスト（Preflight Request）
 - 上記条件を外れると、`OPTIONS` メソッドで事前照会が送られる。
 - サーバーが `ACAM` や `ACAH` で許可を返さないと**本リクエストは実行されない**。
+- 資格情報なしではACAM／ACAHの`*`をワイルドカードとして扱う。資格情報付きでは`*`をワイルドカードとして扱わず、`Authorization`は資格情報なしでも明示が必要。
 
 ### 🔸 資格情報（Credentials）
 - `fetch(url, { credentials: 'include' })` などを指定した場合、
@@ -280,7 +291,7 @@ hub: true
 ### 公式ドキュメント
 - MDN: [HTTP access control (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
 - WHATWG: [Fetch Standard – CORS protocol](https://fetch.spec.whatwg.org/#cors-protocol)
-- OWASP: [Cross-Origin Resource Sharing (CORS)](https://owasp.org/www-community/cors-misconfiguration)
+- OWASP WSTG: [Cross Origin Resource Sharing](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/11-Client-side/07-Cross_Origin_Resource_Sharing/)
 
 ### 開発者向けドキュメント
 - **[技術仕様書（TECHNICAL.md）](TECHNICAL.md)** - 実装の詳細、コアアルゴリズム、設計の工夫を解説
@@ -295,7 +306,8 @@ hub: true
 
 #### 1. **Content Security Policy (CSP)**
 - `default-src 'self'` - 基本的に同一オリジンからのリソースのみ許可
-- `script-src 'self' 'unsafe-inline'` - 同一オリジンのスクリプトとインラインスクリプトを許可
+- `script-src 'self'` - 同一オリジンの外部スクリプトだけを許可
+- iframe文書にもCSPを設定し、同一オリジン側は外部スクリプト、sandbox側はハッシュ許可した固定スクリプトだけを実行
 - `style-src 'self' 'unsafe-inline'` - 同一オリジンのスタイルとインラインスタイルを許可
 - `connect-src` - ライブFetch実験用に以下の外部オリジンへの接続を許可：
   - `https://httpbin.org` - CORS動作確認用テストサーバー
@@ -309,19 +321,18 @@ hub: true
 **注意**: `frame-ancestors`ディレクティブは、`<meta>`タグ経由のCSPでは効果がないため含まれていません（HTTPレスポンスヘッダーでのみ有効）。
 
 #### 2. **XSS（クロスサイトスクリプティング）対策**
-- ユーザー入力は`textContent`を使用して安全にDOM挿入
-- `innerHTML`は空文字列でのクリア時のみ使用
+- ユーザー入力と動的な説明は`textContent`とDOM APIで挿入
+- 既存表示の消去は`replaceChildren()`を使用
 - 入力値の検証とエスケープを実装
 
 #### 3. **URL検証（ライブFetch機能）**
 - 安全でないURLスキーム（`file:`, `javascript:`, `data:`等）を自動的にブロック
-- http/httpsのみを許可し、セキュリティリスクを低減
+- http/httpsだけを受け付け、CSPの許可済みオリジンと照合
 - 無効なURL形式は実行前にエラー表示
 
-#### 4. **その他のセキュリティヘッダー**
-- `X-Content-Type-Options: nosniff` - MIMEタイプスニッフィング防止
-- `Referrer-Policy: strict-origin-when-cross-origin` - リファラー情報の適切な制御
-- `Permissions-Policy` - 不要なブラウザー機能（位置情報、マイク、カメラ）を無効化
+#### 4. **GitHub Pagesで設定できないヘッダー**
+
+`X-Content-Type-Options`、`Permissions-Policy`、`X-Frame-Options`はHTTPレスポンスヘッダーで設定する項目です。meta要素では有効にならず、GitHub Pagesではリポジトリーから設定できないため、実装済みとは扱いません。`Referrer-Policy: strict-origin-when-cross-origin`に相当するmeta要素は有効です。
 
 ### 利用上の注意事項
 
@@ -336,10 +347,17 @@ hub: true
 - 外部サーバーへのリクエストは、ユーザーが明示的に実行した場合のみ送信されます
 
 #### 🛡️ ライブFetch機能の責任ある使用
-ライブFetchタブでは、任意のURLにリクエストを送信できますが：
+ライブFetchタブでは、`connect-src`で許可した3つの外部オリジンと同一オリジンだけにリクエストを送信できます。
 - **他者のサーバーに対する過度なリクエストは避けてください**
 - テスト用途では、自身が管理するサーバーまたは公式テストサーバー（httpbin.org等）を使用してください
 - DDoS攻撃やその他の悪意ある行為に使用しないでください
+
+#### ⚠️ 判定できないこと
+
+- Fetch APIの`TypeError`だけから、CORS拒否、DNS、TLS、オフラインを断定すること
+- 対象サーバーへ本リクエストが到達したことを証明すること
+- サーバー設定や認可の安全性を監査すること
+- DevToolsやサーバーログを使わず、実際のOPTIONS応答を確認すること
 
 #### 📋 セキュリティ問題の報告
 もしセキュリティ上の問題を発見された場合は、GitHubのIssuesから報告してください。
@@ -351,8 +369,10 @@ hub: true
 
 ```
 cors-playground/
-├─ index.html              # メインHTML（SPA構造）
-├─ README.md               # プロジェクト説明書
+├─ index.html              # 日本語画面
+├─ index.en.html           # 英語画面
+├─ README.md               # 日本語説明書
+├─ README.en.md            # 英語説明書
 ├─ TECHNICAL.md            # 開発者向け技術仕様書
 ├─ LICENSE                 # MITライセンス
 ├─ .gitignore              # Git除外設定
@@ -361,15 +381,21 @@ cors-playground/
 │  └─ style.css           # メインスタイルシート（CSS変数ベース）
 ├─ js/
 │  ├─ app.js              # タブ切替・テーマ制御
+│  ├─ cors-core.js        # 仕様判定の共通コア
+│  ├─ messages.js         # 日英の動的メッセージ
+│  ├─ language-init.js    # 初期言語の決定
 │  ├─ sop-lab.js          # SOP実験（iframe + postMessage）
-│  ├─ cors-simulator.js   # CORS判定エンジン
+│  ├─ cors-simulator.js   # シミュレーター画面
 │  └─ live-fetch.js       # 実リクエスト実験・URL検証
 ├─ labs/
-│  ├─ iframe-safe.html    # 同一オリジンiframe用
-│  └─ iframe-sandboxed.html # sandbox iframe用
+│  ├─ iframe-lab.js       # iframe側のpostMessage処理
+│  ├─ iframe-safe.html / iframe-safe.en.html
+│  └─ iframe-sandboxed.html / iframe-sandboxed.en.html
+├─ test/                  # node:testによる自動テスト
+├─ package.json           # テストコマンド
 └─ assets/
-   ├─ screenshot.png      # スクリーンショット1
-   └─ screenshot2.png     # スクリーンショット2
+   ├─ screenshot.png / screenshot2.png
+   └─ en/                 # 英語画面の画像
 ```
 
 ---

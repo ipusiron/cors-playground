@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
   <title>SOP-Lab Safe Frame</title>
   <style>
     body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:0; padding:10px}
@@ -13,11 +14,6 @@
     <h3>同一オリジン iframe</h3>
     <p>親ページから <code>contentDocument</code> にアクセスできます。</p>
   </div>
-  <script>
-    window.addEventListener('message', (ev)=>{
-      // 同一オリジンなので origin は親と一致
-      ev.source.postMessage({ from:'safe-frame', echo: ev.data }, ev.origin);
-    });
-  </script>
+  <script src="iframe-lab.js" defer></script>
 </body>
 </html>

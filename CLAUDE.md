@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**CORS Playground** is an interactive educational tool for learning Same-Origin Policy (SOP), Cross-Origin Resource Sharing (CORS), and preflight requests through three complementary approaches: theory, visualization, and live experimentation.
+**CORS Playground** is a bilingual interactive tool for learning Same-Origin Policy (SOP), Cross-Origin Resource Sharing (CORS), and preflight requests through theory, simulation, iframe experiments, and controlled live requests.
 
 **Demo:** https://ipusiron.github.io/cors-playground/
 
@@ -28,6 +28,12 @@ python -m http.server 8000
 ```
 
 ### Testing Changes
+
+Run the dependency-free test suite first:
+
+```bash
+npm test
+```
 
 After modifying files, refresh the browser. Use browser DevTools (F12) to:
 - **Console tab**: Check for JavaScript errors and see logs from fetch experiments
@@ -53,14 +59,14 @@ The application is organized into four tabs, providing a progressive learning pa
    - Shows that sandboxed iframes without `allow-same-origin` get `origin: null`
 
 3. **CORS Decision Simulator** (`js/cors-simulator.js`)
-   - Pure client-side decision logic that simulates browser CORS validation
+   - Uses the DOM-independent decision core in `js/cors-core.js`
    - **Key constants:**
      - `SAFE_METHODS`: GET, HEAD, POST
-     - `SAFE_HEADERS`: accept, accept-language, content-language, content-type
+     - Safelisted headers: accept, accept-language, content-language, content-type, range
      - `SAFE_CONTENT_TYPES`: text/plain, application/x-www-form-urlencoded, multipart/form-data
    - **Decision flow:**
-     1. `isSimpleRequest()`: Checks if request qualifies as "simple" (no preflight)
-     2. `needsPreflight()`: Determines if OPTIONS request is needed
+     1. `unsafeRequestHeaderNames()`: Checks complete names, values, and size limits
+     2. `needsPreflight()`: Determines if OPTIONS is needed
      3. `finalDecision()`: Validates server response headers against request requirements
    - **Validation rules implemented:**
      - `withCredentials=true` requires exact origin match (no wildcard `*`)
@@ -76,6 +82,8 @@ The application is organized into four tabs, providing a progressive learning pa
      - GitHub raw content (CORS-enabled, succeeds)
      - example.com (no CORS headers, fails)
      - httpbin.org (customizable response headers for experimentation)
+   - Restricts destinations to the three CSP-approved external origins and same origin
+   - Distinguishes CSP blocks from indeterminate Fetch API failures
    - **Note:** Preflight detection is estimated client-side; actual OPTIONS requests should be verified in DevTools Network tab
 
 ### Common UI (`js/app.js`)
@@ -167,11 +175,15 @@ cors-playground/
 ├── index.html              # Main page with four tab sections (Basics tab is inline HTML)
 ├── css/style.css           # All styling including light/dark themes
 ├── js/
+│   ├── cors-core.js       # Dependency-free CORS decision core
+│   ├── messages.js        # Japanese and English dynamic messages
+│   ├── language-init.js   # Initial language selection
 │   ├── app.js             # Tab switching, theme toggle, accordion control
-│   ├── sop-lab.js         # SOP iframe experiments & postMessage
-│   ├── cors-simulator.js  # CORS decision logic & visualization
-│   └── live-fetch.js      # Live fetch experiments with logging
+│   ├── sop-lab.js         # Parent-side SOP and postMessage experiments
+│   ├── cors-simulator.js  # CORS simulator UI
+│   └── live-fetch.js      # Controlled live fetch experiments
 └── labs/
+    ├── iframe-lab.js        # Frame-side postMessage handler
     ├── iframe-safe.html       # Same-origin iframe content
     └── iframe-sandboxed.html  # Sandboxed iframe content
 ```
@@ -180,17 +192,12 @@ cors-playground/
 
 ### Preflight Decision Logic
 
-From `cors-simulator.js` and `live-fetch.js`:
+From `cors-core.js`:
 
 ```javascript
-// A request needs preflight if it's NOT a simple request
-function isSimpleRequest(method, contentType, headers) {
-  if (!SAFE_METHODS.has(method)) return false;
-  if (contentType && !SAFE_CONTENT_TYPES.has(contentType)) return false;
-  for (const h of headers) {
-    if (!SAFE_HEADERS.has(h.toLowerCase())) return false;
-  }
-  return true;
+function needsPreflight(method, headers) {
+  return !SAFE_METHODS.has(String(method || '').toUpperCase())
+    || unsafeRequestHeaderNames(headers).length > 0;
 }
 ```
 
@@ -199,7 +206,8 @@ function isSimpleRequest(method, contentType, headers) {
 From `live-fetch.js`:
 
 - Successful CORS requests: Log response status, headers, and body preview
-- Failed CORS requests: Catch `TypeError` and explain that browser blocked the response
+- CSP-restricted targets: Stop before `fetch()` and identify CSP as the reason
+- Other failures: Explain that `TypeError` cannot distinguish CORS, DNS, TLS, offline, and other network causes
 - The actual preflight OPTIONS request is invisible to JavaScript; only estimated based on request characteristics
 
 ### postMessage Communication
