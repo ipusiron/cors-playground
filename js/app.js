@@ -13,6 +13,20 @@
 // タブ切替システム
 // ========================================
 
+const SESSION_STATE_KEY = 'corspg-language-state-v1';
+let pendingSessionState = null;
+try {
+  const storedSessionState = sessionStorage.getItem(SESSION_STATE_KEY);
+  sessionStorage.removeItem(SESSION_STATE_KEY);
+  if(storedSessionState){
+    const parsed = JSON.parse(storedSessionState);
+    if(parsed && parsed.version === 1) pendingSessionState = parsed;
+  }
+} catch(error) {
+  pendingSessionState = null;
+}
+globalThis.CorsPendingSessionState = pendingSessionState;
+
 /**
  * タブ切替機能の初期化
  *
@@ -47,6 +61,10 @@
       document.getElementById(id).classList.add('active');
     });
   });
+
+  const restoredTab = pendingSessionState && pendingSessionState.activeTab;
+  const restoredButton = Array.from(tabs).find((button)=>button.dataset.tab === restoredTab);
+  if(restoredButton) restoredButton.click();
 })();
 
 // ========================================
@@ -167,6 +185,40 @@ function toggleAccordion(contentId, button){
 
 document.querySelectorAll('[data-accordion-target]').forEach((button)=>{
   button.addEventListener('click', ()=>toggleAccordion(button.dataset.accordionTarget, button));
+});
+
+if(pendingSessionState && Array.isArray(pendingSessionState.openAccordions)){
+  const openIds = new Set(pendingSessionState.openAccordions.filter((id)=>typeof id === 'string'));
+  document.querySelectorAll('[data-accordion-target]').forEach((button)=>{
+    if(openIds.has(button.dataset.accordionTarget) && button.getAttribute('aria-expanded') !== 'true'){
+      toggleAccordion(button.dataset.accordionTarget, button);
+    }
+  });
+}
+
+document.querySelectorAll('.language-link').forEach((link)=>{
+  link.addEventListener('click', (event)=>{
+    event.preventDefault();
+    const activeTab = document.querySelector('.tab-btn.active');
+    const openAccordions = Array.from(document.querySelectorAll('.accordion-card.open [data-accordion-target]'))
+      .map((button)=>button.dataset.accordionTarget);
+    const scenario = globalThis.CorsSimulatorState
+      ? globalThis.CorsSimulatorState.collectScenario()
+      : null;
+    try {
+      sessionStorage.setItem(SESSION_STATE_KEY, JSON.stringify({
+        version: 1,
+        activeTab: activeTab ? activeTab.dataset.tab : 'tab-basics',
+        openAccordions,
+        scenario,
+      }));
+    } catch(error) {
+      // 保存できない環境でも言語切替は続ける
+    }
+    const target = new URL(link.href, location.href);
+    target.hash = location.hash;
+    location.href = target.href;
+  });
 });
 
 (function renderCurrentUrls(){

@@ -179,6 +179,8 @@ textarea{resize:vertical}
 }
 .form-grid .full{grid-column:1 / -1}
 .actions-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+.share-actions{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:12px 0 16px}
+.share-status{min-height:1.5em; color:var(--muted); overflow-wrap:anywhere}
 .checkbox{display:flex; align-items:center; gap:8px}
 
 .sop-frames{display:grid; grid-template-columns:1fr; gap:12px}

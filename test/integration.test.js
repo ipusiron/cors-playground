@@ -54,6 +54,30 @@ test('all simulator input mutations rerender derived results', () => {
   assert.match(source, /addEventListener\('change', doSimulate\)/);
 });
 
+test('shared scenarios restore and evaluate while excluding live-fetch data', () => {
+  const source = read('js/cors-simulator.js');
+  assert.match(source, /CorsCore\.encodeScenario\(collectScenario\(\)\)/);
+  assert.match(source, /applyScenario\(CorsCore\.decodeScenario\(location\.hash\)\)/);
+  assert.match(source, /simulatorTab\.click\(\)/);
+  assert.match(source, /doSimulate\(\);\s*$/);
+  const collector = source.slice(source.indexOf('function collectScenario'), source.indexOf('function applyScenario'));
+  for (const forbidden of ['liveUrl', 'liveHeaders', 'liveBody', 'liveLog', 'pmMessage', 'pmLog']) {
+    assert.doesNotMatch(collector, new RegExp(forbidden));
+  }
+});
+
+test('language switching stores only safe session state and restores UI selection', () => {
+  const source = read('js/app.js');
+  assert.match(source, /sessionStorage\.setItem\(SESSION_STATE_KEY/);
+  assert.match(source, /CorsSimulatorState\.collectScenario\(\)/);
+  assert.match(source, /activeTab/);
+  assert.match(source, /openAccordions/);
+  assert.match(source, /target\.hash = location\.hash/);
+  for (const forbidden of ['liveUrl', 'liveHeaders', 'liveBody', 'liveLog', 'pmMessage', 'pmLog']) {
+    assert.doesNotMatch(source, new RegExp(forbidden));
+  }
+});
+
 test('CSP and metadata do not claim unsupported header behavior', () => {
   const html = read('index.html');
   assert.doesNotMatch(html, /http-equiv="(?:X-Content-Type-Options|Permissions-Policy)"/i);
@@ -66,7 +90,7 @@ test('interactive disclosure and dynamic results expose accessible state', () =>
   const html = read('index.html');
   assert.equal((html.match(/data-accordion-target=/g) || []).length, 7);
   assert.equal((html.match(/data-help-target=/g) || []).length, 2);
-  assert.equal((html.match(/aria-live="polite"/g) || []).length, 6);
+  assert.equal((html.match(/aria-live="polite"/g) || []).length, 7);
   assert.doesNotMatch(read('js/sop-lab.js'), /innerHTML/);
   assert.match(read('js/app.js'), /aria-expanded/);
 });
@@ -107,7 +131,7 @@ test('English page has all functional controls and bilingual scripts', () => {
     'btnPostMessage', 'pmLog', 'btnSimulate', 'simMethod', 'simContentType',
     'simHeaders', 'simCred', 'simACAO', 'simACAC', 'simACAM', 'simACAH',
     'simACEH', 'simResponseHeaders', 'simExposeResult', 'simMaxAge', 'simSecondAfter',
-    'simSameRequest', 'simCacheTimeline',
+    'simSameRequest', 'simCacheTimeline', 'btnSimShare', 'btnSimClearShare', 'simShareStatus',
     'simFlow', 'simExplain', 'btnLiveGo', 'liveUrl', 'liveMethod', 'liveCT',
     'liveCred', 'liveHeaders', 'liveBody', 'liveLog',
   ];

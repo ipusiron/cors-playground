@@ -374,6 +374,7 @@
     mimeEssence,
     needsPreflight,
     modelPreflightCache,
+    normalizeScenario,
     parseHeaderLines,
     parseHeaderNameList,
     responseHeaderExposure,
