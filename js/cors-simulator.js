@@ -28,6 +28,7 @@
  * - パフォーマンス: getElementById() は高速（O(1)ハッシュマップ）
  */
 const Q = (id)=>document.getElementById(id);
+const simText = CorsText.t;
 
 // ========================================
 // CORS 仕様定数
@@ -307,21 +308,7 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
 }
 
 function formatCoreNote(note){
-  const values = note.values || {};
-  const messages = {
-    acaoWildcardCredentials: 'NG: 資格情報付きリクエストでは ACAO:* を使用できない。',
-    acaoExactRequired: `NG: ACAO は発信元(${values.origin})との完全一致が必要。現在は "${values.actual}"。`,
-    acaoExactOk: 'OK: ACAO は発信元と一致。',
-    acacRequired: 'NG: 資格情報付きだが ACAC:true ではない。',
-    acacOk: 'OK: ACAC:true。',
-    acaoOk: 'OK: ACAO が発信元を許可。',
-    acaoDenied: `NG: ACAO が発信元(${values.origin})を許可していない。現在は "${values.actual}"。`,
-    methodDenied: `NG: メソッド ${values.method} は ACAM で許可されていない。`,
-    methodAllowed: `OK: メソッド ${values.method} は ACAM で許可。`,
-    headersDenied: `NG: リクエストヘッダー [${values.headers}] が ACAH で許可されていない。`,
-    headersAllowed: 'OK: 非セーフリストヘッダーは ACAH で許可。',
-  };
-  return messages[note.key] || note.key;
+  return simText(note.key, note.values);
 }
 
 // ========================================
@@ -364,9 +351,9 @@ function renderFlow({simple, preflight, decisionOk, notes}){
   };
 
   // 3段階のフローをレンダリング
-  add(`1) Simple Request 判定 → ${simple ? 'YES' : 'NO'}`, simple ? 'ok' : 'warn');
-  add(`2) プリフライト要否 → ${preflight ? 'YES (OPTIONS 実施)' : 'NO'}`, preflight ? 'warn' : 'ok');
-  add(`3) 最終可否 → ${decisionOk ? 'ALLOW' : 'BLOCK'}`, decisionOk ? 'ok' : 'ng');
+  add(simText('simSimple', { result: simple ? 'YES' : 'NO' }), simple ? 'ok' : 'warn');
+  add(simText('simPreflight', { result: preflight ? simText('simPreflightYes') : 'NO' }), preflight ? 'warn' : 'ok');
+  add(simText('simDecision', { result: decisionOk ? 'ALLOW' : 'BLOCK' }), decisionOk ? 'ok' : 'ng');
 
   // 詳細解説の表示
   const exp = Q('simExplain');
@@ -426,12 +413,17 @@ function doSimulate(){
 
   // ===== 解説文生成 =====
   const notes = [];
-  notes.push(`Simple Request 条件: method=${method} ct=${ct||'(未)'} headers=[${headers.join(', ')}] → ${simple?'満たす':'満たさない'}`);
+  notes.push(simText('simCondition', {
+    method,
+    contentType: ct || simText('unspecified'),
+    headers: headers.join(', '),
+    result: simple ? simText('simConditionYes') : simText('simConditionNo'),
+  }));
 
   if(preflight){
-    notes.push('プリフライト必要: 非セーフ条件が含まれるため OPTIONS で事前照会が行われる。');
+    notes.push(simText('simPreflightNeeded'));
   }else{
-    notes.push('プリフライト不要: Simple Request 条件を満たす。');
+    notes.push(simText('simPreflightNotNeeded'));
   }
 
   notes.push(''); // 空行

@@ -16,9 +16,11 @@ test('browser loads the shared CORS core before UI scripts', () => {
 
 test('live fetch distinguishes CSP from indeterminate fetch failures', () => {
   const source = read('js/live-fetch.js');
+  const messages = read('js/messages.js');
   assert.match(source, /securitypolicyviolation/);
-  assert.match(source, /CORS拒否ではありません/);
-  assert.match(source, /TypeErrorだけでは、CORS拒否・通信断・DNS・TLSなどを断定できません/);
+  assert.match(source, /liveText\('liveCspPrecheck'\)/);
+  assert.match(messages, /CORS拒否ではありません/);
+  assert.match(messages, /TypeErrorだけでは、CORS拒否・通信断・DNS・TLSなどを断定できません/);
   assert.doesNotMatch(source, /CORSエラーの可能性が高い/);
 });
 
@@ -62,4 +64,29 @@ test('mobile controls keep readable input size and all four tabs visible', () =>
   assert.match(css, /grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /font-size:16px/);
   assert.match(css, /\.comparison-table,[\s\S]*overflow-x:auto/);
+});
+
+test('English page has all functional controls and bilingual scripts', () => {
+  const html = read('index.en.html');
+  const ids = [
+    'themeToggle', 'frameSafe', 'frameSandboxed', 'btnReadSafe', 'btnReadSandboxed',
+    'btnPostMessage', 'pmLog', 'btnSimulate', 'simMethod', 'simContentType',
+    'simHeaders', 'simCred', 'simACAO', 'simACAC', 'simACAM', 'simACAH',
+    'simFlow', 'simExplain', 'btnLiveGo', 'liveUrl', 'liveMethod', 'liveCT',
+    'liveCred', 'liveHeaders', 'liveBody', 'liveLog',
+  ];
+  ids.forEach((id) => assert.match(html, new RegExp(`id="${id}"`)));
+  assert.match(read('js/messages.js'), /ja:\s*\{/);
+  assert.match(read('js/messages.js'), /en:\s*\{/);
+  assert.match(read('js/language-init.js'), /navigator\.language/);
+});
+
+test('English static UI has no Japanese outside the language link', () => {
+  const html = read('index.en.html').replace('>日本語<', '>Japanese<');
+  assert.doesNotMatch(html, /[\u3040-\u30ff\u3400-\u9fff]/);
+});
+
+test('dynamic message catalogs have identical keys', () => {
+  const { catalog } = require('../js/messages.js');
+  assert.deepEqual(Object.keys(catalog.en).sort(), Object.keys(catalog.ja).sort());
 });

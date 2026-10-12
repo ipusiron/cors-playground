@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>SOP Lab Safe Frame</title><style>body{font-family:system-ui,sans-serif;margin:0;padding:10px}.box{padding:10px;background:#eef7ff;border:1px solid #bcd7ff;border-radius:10px}</style></head>
+<body><div class="box"><h3>Same-origin iframe</h3><p>The parent can access this frame's <code>contentDocument</code>.</p></div>
+<script>window.addEventListener('message',(event)=>{if(event.source===parent){event.source.postMessage({from:'safe-frame',echo:event.data},event.origin)}});</script>
+</body>
+</html>

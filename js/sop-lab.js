@@ -4,6 +4,7 @@ const frameSafe = document.getElementById('frameSafe');
 const frameSandboxed = document.getElementById('frameSandboxed');
 const safeResult = document.getElementById('safeResult');
 const sandboxedResult = document.getElementById('sandboxedResult');
+const sopText = CorsText.t;
 
 function renderExplanation(actionSection, config){
   let explanation = actionSection.querySelector('.result-explanation');
@@ -33,21 +34,21 @@ document.getElementById('btnReadSafe').addEventListener('click', ()=>{
   try{
     // 同一オリジンなので DOM へアクセスできる
     const title = frameSafe.contentDocument.title;
-    safeResult.textContent = `✅ 成功: title="${title}" （理由：同一オリジンのため、アクセスが許可されました）`;
+    safeResult.textContent = sopText('sopSafeResult', { title });
     safeResult.style.color = 'var(--success)';
 
     // 結果解説を追加（アクションセクションの末尾に）
     const actionSection = safeResult.closest('.experiment-action');
     renderExplanation(actionSection, {
-      heading: '✓ なぜ成功したのか？',
+      heading: sopText('sopSuccessHeading'),
       paragraphs: [
-        [{ text: 'このiframeは' }, { tag: 'strong', text: '同一オリジン' }, { text: '（親ページと同じサイト）です。' }],
-        [{ text: 'ブラウザーは同一オリジンのため、' }, { tag: 'code', text: 'contentDocument' }, { text: '（iframe内のDOM）へのアクセスを許可します。' }],
-        [{ tag: 'strong', text: '重要：' }, { text: '異なるオリジンのiframeでは、このアクセスはブロックされます。' }],
+        [{ text: sopText('sopSameOrigin1') }],
+        [{ text: sopText('sopSameOrigin2') }],
+        [{ text: sopText('sopSameOrigin3') }],
       ],
     });
   }catch(e){
-    safeResult.textContent = `❌ エラー: ${e}`;
+    safeResult.textContent = sopText('sopError', { error: String(e) });
     safeResult.style.color = 'var(--error)';
   }
 });
@@ -56,22 +57,22 @@ document.getElementById('btnReadSandboxed').addEventListener('click', ()=>{
   try{
     // sandbox（allow-same-origin を付けていない）なのでクロス扱い → 例外
     const title = frameSandboxed.contentDocument.title; // ここで例外になるはず
-    sandboxedResult.textContent = `取得: "${title}"（※環境によりブロックされるはず）`;
+    sandboxedResult.textContent = sopText('sopUnexpectedAccess', { title });
     sandboxedResult.style.color = 'var(--warn)';
   }catch(e){
-    sandboxedResult.textContent = `❌ ブロックされました （理由：sandbox属性によりクロスオリジン扱いになったため）`;
+    sandboxedResult.textContent = sopText('sopSandboxResult');
     sandboxedResult.style.color = 'var(--error)';
 
     // 結果解説を追加（アクションセクションの末尾に）
     const actionSection = sandboxedResult.closest('.experiment-action');
     renderExplanation(actionSection, {
       error: true,
-      heading: '✓ なぜブロックされたのか？',
+      heading: sopText('sopBlockedHeading'),
       paragraphs: [
-        [{ text: 'このiframeには' }, { tag: 'code', text: 'sandbox' }, { text: '属性がありますが、' }, { tag: 'code', text: 'allow-same-origin' }, { text: 'がありません。' }],
-        [{ text: 'そのため、' }, { tag: 'strong', text: '同じサイトでもクロスオリジン扱い' }, { text: 'になり、DOMアクセスがブロックされます。' }],
-        [{ tag: 'strong', text: 'セキュリティ上の理由：' }, { text: 'sandboxは信頼できないコンテンツを隔離する仕組みです。' }],
-        [{ tag: 'strong', text: 'エラーメッセージ：' }, { tag: 'code', text: e.message }],
+        [{ text: sopText('sopSandbox1') }],
+        [{ text: sopText('sopSandbox2') }],
+        [{ text: sopText('sopSandbox3') }],
+        [{ text: sopText('sopErrorMessage', { error: e.message }) }],
       ],
     });
   }
@@ -82,7 +83,7 @@ const pmLog = document.getElementById('pmLog');
 const pmTargetSelect = document.getElementById('pmTarget');
 const pmMessageInput = document.getElementById('pmMessage');
 document.getElementById('btnPostMessage').addEventListener('click', ()=>{
-  const msg = pmMessageInput.value || '(empty)';
+  const msg = pmMessageInput.value || sopText('empty');
   const target = pmTargetSelect.value;
   if(target === 'safe'){
     const targetOrigin = location.origin === 'null' ? '*' : location.origin;
@@ -90,7 +91,7 @@ document.getElementById('btnPostMessage').addEventListener('click', ()=>{
   }else{
     frameSandboxed.contentWindow.postMessage({kind:'demo', msg}, '*');
   }
-  appendPmLog(`Parent → ${target} iframe: "${msg}"`);
+  appendPmLog(sopText('pmSent', { target, message: msg }));
 });
 
 window.addEventListener('message', (ev)=>{
@@ -100,10 +101,10 @@ window.addEventListener('message', (ev)=>{
   const validSafe = fromSafe && (safeOrigin === 'null' || ev.origin === safeOrigin);
   const validSandboxed = fromSandboxed && ev.origin === 'null';
   if(!validSafe && !validSandboxed){
-    appendPmLog(`Rejected unexpected message from origin=${ev.origin || 'null'}`);
+    appendPmLog(sopText('pmRejected', { origin: ev.origin || 'null' }));
     return;
   }
-  appendPmLog(`Received from origin=${ev.origin || 'null'}: ${JSON.stringify(ev.data)}`);
+  appendPmLog(sopText('pmReceived', { origin: ev.origin || 'null', data: JSON.stringify(ev.data) }));
 });
 
 function appendPmLog(line){

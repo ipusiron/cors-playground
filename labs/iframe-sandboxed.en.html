@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>SOP Lab Sandboxed Frame</title><style>body{font-family:system-ui,sans-serif;margin:0;padding:10px}.box{padding:10px;background:#fff6e5;border:1px solid #ffd79c;border-radius:10px}</style></head>
+<body><div class="box"><h3>Sandboxed iframe</h3><p>Without <code>allow-same-origin</code>, this frame has an opaque origin.</p></div>
+<script>window.addEventListener('message',(event)=>{if(event.source===parent){event.source.postMessage({from:'sandboxed-frame',echo:event.data},'*')}});</script>
+</body>
+</html>

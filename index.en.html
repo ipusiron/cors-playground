@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CORS Playground</title>
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self';
+    style-src 'self' 'unsafe-inline';
+    connect-src 'self' https://httpbin.org https://raw.githubusercontent.com https://example.com;
+    img-src 'self' data:;
+    font-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    upgrade-insecure-requests;
+  " />
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/language-init.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <h1>CORS Playground</h1>
+      <p class="subtitle">Learn same-origin policy, CORS, and preflight by inspecting and testing them.</p>
+    </div>
+    <div class="header-actions">
+      <a class="btn ghost language-link" href="index.html?lang=ja" hreflang="ja">日本語</a>
+      <button id="themeToggle" class="btn" aria-label="Toggle theme">🌙</button>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Learning sections">
+    <button class="tab-btn active" data-tab="tab-basics">📚 Basics</button>
+    <button class="tab-btn" data-tab="tab-sop">🧪 SOP Lab</button>
+    <button class="tab-btn" data-tab="tab-simulator">⚙️ CORS Simulator</button>
+    <button class="tab-btn" data-tab="tab-live">🚀 Live Fetch</button>
+  </nav>
+
+  <main class="tab-panels">
+    <section id="tab-basics" class="tab-panel active">
+      <div class="learning-objectives">
+        <h2>What you will learn</h2>
+        <ul>
+          <li>An origin is the combination of scheme, host, and port.</li>
+          <li>SOP restricts one origin from reading another origin's DOM and responses.</li>
+          <li>CORS lets a server grant selected cross-origin response access.</li>
+          <li>A preflight can stop the actual request before it is sent.</li>
+        </ul>
+      </div>
+      <div class="panel-grid single-column">
+        <article class="card accordion-card">
+          <button type="button" class="accordion-header" data-accordion-target="en-origin" aria-controls="en-origin" aria-expanded="false">
+            <h2>🌐 Origin and same-origin policy</h2><span class="accordion-icon">▼</span>
+          </button>
+          <div id="en-origin" class="accordion-content">
+            <p><code>https://example.com:443</code> is an origin. A different scheme, host, or port means a different origin.</p>
+            <p>SOP does not make every cross-origin request disappear. It limits what JavaScript can read or manipulate.</p>
+          </div>
+        </article>
+        <article class="card accordion-card">
+          <button type="button" class="accordion-header" data-accordion-target="en-cors" aria-controls="en-cors" aria-expanded="false">
+            <h2>🔄 Simple requests and preflight</h2><span class="accordion-icon">▼</span>
+          </button>
+          <div id="en-cors" class="accordion-content">
+            <p>A CORS-safelisted request can send the actual request first. Other cross-origin requests use an OPTIONS preflight.</p>
+            <p>If preflight is rejected, the actual request is not sent. A Fetch API TypeError alone cannot prove the cause.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-sop" class="tab-panel">
+      <div class="learning-objectives">
+        <h2>SOP experiment</h2>
+        <p>Compare direct DOM access with a same-origin iframe and a sandboxed iframe, then exchange a message explicitly.</p>
+      </div>
+      <div class="panel-grid">
+        <article class="card">
+          <h2>Same-origin iframe</h2>
+          <iframe id="frameSafe" src="labs/iframe-safe.en.html" title="Same-origin iframe"></iframe>
+          <div class="experiment-action">
+            <button id="btnReadSafe" class="btn">Read its DOM</button>
+            <p id="safeResult" aria-live="polite"></p>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Sandboxed iframe</h2>
+          <iframe id="frameSandboxed" src="labs/iframe-sandboxed.en.html" sandbox="allow-scripts" title="Sandboxed iframe"></iframe>
+          <div class="experiment-action">
+            <button id="btnReadSandboxed" class="btn">Try to read its DOM</button>
+            <p id="sandboxedResult" aria-live="polite"></p>
+          </div>
+        </article>
+      </div>
+      <div class="card">
+        <h2>postMessage</h2>
+        <p>Direct DOM access and explicit message exchange are different capabilities. The receiver must validate the sender.</p>
+        <div class="form-grid">
+          <div><label class="label" for="pmTarget">Target</label><select id="pmTarget"><option value="safe">Same-origin iframe</option><option value="sandboxed">Sandboxed iframe</option></select></div>
+          <div><label class="label" for="pmMessage">Message</label><input id="pmMessage" type="text" value="hello" /></div>
+        </div>
+        <div class="actions-row"><button id="btnPostMessage" class="btn">Send with postMessage</button></div>
+        <div class="log"><div class="log-head">Received messages</div><pre id="pmLog" class="pre" aria-live="polite" aria-atomic="false"></pre></div>
+      </div>
+    </section>
+
+    <section id="tab-simulator" class="tab-panel">
+      <div class="learning-objectives">
+        <h2>CORS decision simulator</h2>
+        <p>Change request intent and response headers. The result models CORS checks; it does not send a request.</p>
+      </div>
+      <div class="actions-row">
+        <button id="btnSimPresetSimple" class="btn">Simple request</button>
+        <button id="btnSimPresetJSON" class="btn">JSON preflight</button>
+        <button id="btnSimPresetAuth" class="btn">Authorization and credentials</button>
+      </div>
+      <div class="panel-grid">
+        <article class="card">
+          <h2>Request intent</h2>
+          <div class="form-grid">
+            <div><label class="label" for="simMethod">Method</label><select id="simMethod"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>OPTIONS</option></select></div>
+            <div><label class="label" for="simContentType">Content-Type</label><select id="simContentType"><option value="">(none)</option><option>text/plain</option><option>application/x-www-form-urlencoded</option><option>multipart/form-data</option><option>application/json</option><option>application/xml</option></select></div>
+            <div class="full"><label class="label" for="simHeaders">Request header names, comma-separated</label><input id="simHeaders" type="text" placeholder="Authorization, X-Requested-With" /></div>
+            <div class="full"><label class="checkbox"><input id="simCred" type="checkbox" /> Send credentials</label></div>
+          </div>
+          <div class="actions-row"><button id="btnSimulate" class="btn">Evaluate</button></div>
+        </article>
+        <article class="card">
+          <h2>Simulated response headers</h2>
+          <div class="form-grid">
+            <div class="full"><label class="label" for="simACAO">Access-Control-Allow-Origin</label><input id="simACAO" type="text" placeholder="https://requesting.example or *" /></div>
+            <div><label class="label" for="simACAC">Access-Control-Allow-Credentials</label><select id="simACAC"><option value="">(none)</option><option>true</option><option>false</option></select></div>
+            <div class="full"><label class="label" for="simACAM">Access-Control-Allow-Methods</label><input id="simACAM" type="text" placeholder="GET, POST, PUT" /></div>
+            <div class="full"><label class="label" for="simACAH">Access-Control-Allow-Headers</label><input id="simACAH" type="text" placeholder="Authorization, Content-Type" /></div>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Decision</h2>
+          <div id="simFlow" class="flow" aria-live="polite"></div>
+          <div class="log"><div class="log-head">Explanation</div><pre id="simExplain" class="pre" aria-live="polite" aria-atomic="true"></pre></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-live" class="tab-panel">
+      <div class="learning-objectives">
+        <h2>Live Fetch Lab</h2>
+        <p>This lab sends real requests only after you press Run. CSP limits destinations to the three listed origins and this site.</p>
+      </div>
+      <div class="actions-row">
+        <button id="btnLivePresetOK" class="btn">Allowed example</button>
+        <button id="btnLivePresetNG" class="btn">Rejected example</button>
+        <button id="btnLivePresetHttpbin" class="btn">httpbin preflight example</button>
+      </div>
+      <div class="panel-grid">
+        <article class="card">
+          <h2>Request settings</h2>
+          <div class="form-grid">
+            <div class="full"><label class="label" for="liveUrl">URL</label><input id="liveUrl" type="url" placeholder="https://httpbin.org/anything" /></div>
+            <div><label class="label" for="liveMethod">Method</label><select id="liveMethod"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
+            <div><label class="label" for="liveCT">Content-Type</label><select id="liveCT"><option value="">(none)</option><option>text/plain</option><option>application/x-www-form-urlencoded</option><option>multipart/form-data</option><option>application/json</option></select></div>
+            <div><label class="label" for="liveCred">Credentials</label><select id="liveCred"><option value="omit">omit</option><option value="same-origin">same-origin</option><option value="include">include</option></select></div>
+            <div class="full"><label class="label" for="liveHeaders">Additional headers, one per line</label><textarea id="liveHeaders" rows="4" placeholder="Authorization: Bearer demo"></textarea></div>
+            <div class="full"><label class="label" for="liveBody">Optional body</label><textarea id="liveBody" rows="4" placeholder='{"hello":"world"}'></textarea></div>
+          </div>
+          <div class="actions-row"><button id="btnLiveGo" class="btn">Run fetch</button><button id="btnLiveClear" class="btn ghost">Clear log</button></div>
+          <p class="muted small">A TypeError does not identify CORS by itself. Inspect OPTIONS and response headers in DevTools Network.</p>
+        </article>
+        <article class="card">
+          <h2>Request / response log</h2>
+          <div class="log"><pre id="liveLog" class="pre" aria-live="polite" aria-atomic="false"></pre></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="footer">🔗 <a href="https://github.com/ipusiron/cors-playground" target="_blank" rel="noopener">GitHub repository: ipusiron/cors-playground</a></div></footer>
+  <script src="js/cors-core.js"></script>
+  <script src="js/messages.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/sop-lab.js"></script>
+  <script src="js/cors-simulator.js"></script>
+  <script src="js/live-fetch.js"></script>
+</body>
+</html>

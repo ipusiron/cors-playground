@@ -9,6 +9,7 @@ const live = {
   body: document.getElementById('liveBody'),
   log: document.getElementById('liveLog'),
 };
+const liveText = CorsText.t;
 
 const LIVE_ALLOWED_ORIGINS = [
   'https://httpbin.org',
@@ -34,16 +35,16 @@ function appendLive(line, obj){
 
 async function runFetch(){
   const url = live.url.value.trim();
-  if(!url){ appendLive('NG: URL を入力してください'); return; }
+  if(!url){ appendLive(liveText('liveNeedUrl')); return; }
 
   const target = CorsCore.inspectTarget(url, location.href, LIVE_ALLOWED_ORIGINS);
   if(!target.ok){
     if(target.reason === 'invalidUrl'){
-      appendLive('NG: 無効なURL形式です');
+      appendLive(liveText('liveInvalidUrl'));
     }else if(target.reason === 'unsupportedScheme'){
-      appendLive('NG: http/https以外のスキームは使用できません', { protocol: target.protocol });
+      appendLive(liveText('liveScheme'), { protocol: target.protocol });
     }else{
-      appendLive('⛔ このツールのCSPが通信前にブロックします。CORS拒否ではありません', {
+      appendLive(liveText('liveCspPrecheck'), {
         origin: target.origin,
         allowed_origins: LIVE_ALLOWED_ORIGINS,
       });
@@ -53,7 +54,7 @@ async function runFetch(){
 
   const parsed = CorsCore.parseHeaderLines(live.headers.value);
   if(parsed.errors.length){
-    appendLive('NG: 追加ヘッダーの形式を確認してください', { errors: parsed.errors });
+    appendLive(liveText('liveHeaderFormat'), { errors: parsed.errors });
     return;
   }
 
@@ -69,7 +70,7 @@ async function runFetch(){
   try {
     new Headers(headers);
   } catch(e) {
-    appendLive('NG: ブラウザーが受け付けないヘッダーです', { error: String(e) });
+    appendLive(liveText('liveHeaderRejected'), { error: String(e) });
     return;
   }
 
@@ -88,7 +89,7 @@ async function runFetch(){
   }
 
   const preflightEst = CorsCore.needsPreflight(method, requestHeaderEntries);
-  appendLive('Request ->', { url, ...options, preflight_estimated: preflightEst });
+  appendLive(liveText('liveRequest'), { url, ...options, preflight_estimated: preflightEst });
   lastConnectSrcViolation = null;
 
   try{
@@ -97,46 +98,46 @@ async function runFetch(){
     const headersObj = {};
     res.headers.forEach((v,k)=>headersObj[k] = v);
 
-    appendLive(`✅ Response <- status=${res.status}`, { headers: headersObj });
+    appendLive(liveText('liveResponse', { status: res.status }), { headers: headersObj });
 
     // CORSでブロックされるケースでは、ここに到達せず TypeError 例外になる
-    appendLive('📄 Body (first 400 chars)', text.slice(0, 400));
+    appendLive(liveText('liveBody'), text.slice(0, 400));
 
     // 成功時の解説
     appendLive('', {});
-    appendLive('━━━ 📚 解説：なぜ成功したのか？ ━━━', {});
-    appendLive('✓ サーバーが適切なCORSヘッダーを返したため、ブラウザーがレスポンスの読み取りを許可しました', {});
-    appendLive('✓ 確認すべきヘッダー:', {
-      'Access-Control-Allow-Origin': headersObj['access-control-allow-origin'] || '(未設定)',
-      'Access-Control-Allow-Credentials': headersObj['access-control-allow-credentials'] || '(未設定)'
+    appendLive(liveText('liveSuccessHeading'), {});
+    appendLive(liveText('liveSuccessReason'), {});
+    appendLive(liveText('liveCheckHeaders'), {
+      'Access-Control-Allow-Origin': headersObj['access-control-allow-origin'] || liveText('unspecified'),
+      'Access-Control-Allow-Credentials': headersObj['access-control-allow-credentials'] || liveText('unspecified')
     });
     if(preflightEst){
-      appendLive('⚠️ このリクエストはPreflightが発生した可能性があります。DevTools NetworkタブでOPTIONSリクエストを確認してください', {});
+      appendLive(liveText('livePreflightPossible'), {});
     }
   }catch(err){
     const cspBlocked = lastConnectSrcViolation
       && Date.now() - lastConnectSrcViolation.at < 2000;
-    appendLive('❌ Fetchに失敗しました', { error: String(err) });
+    appendLive(liveText('liveFailed'), { error: String(err) });
     appendLive('', {});
-    appendLive('━━━ 📚 解説：なぜ失敗したのか？ ━━━', {});
+    appendLive(liveText('liveFailureHeading'), {});
     if(cspBlocked){
-      appendLive('⛔ CSPのconnect-srcによるブロックを検出しました。CORS拒否ではありません', lastConnectSrcViolation);
+      appendLive(liveText('liveCspDetected'), lastConnectSrcViolation);
     }else{
-      appendLive('Fetch APIのTypeErrorだけでは、CORS拒否・通信断・DNS・TLSなどを断定できません', {});
-      appendLive('候補: CORSヘッダー不足、資格情報とACAO:*の不整合、プリフライト拒否、ネットワーク障害', {});
+      appendLive(liveText('liveIndeterminate'), {});
+      appendLive(liveText('liveCandidates'), {});
     }
     appendLive('', {});
-    appendLive('🔍 詳細確認方法:', {});
-    appendLive('→ DevTools（F12）を開いて、Networkタブを確認', {});
-    appendLive('→ リクエストのStatusが「(failed)」や「(CORS error)」になっているか確認', {});
-    appendLive('→ OPTIONSメソッドのリクエストがあれば、そのレスポンスヘッダーを確認', {});
+    appendLive(liveText('liveDetails'), {});
+    appendLive(liveText('liveDevtools'), {});
+    appendLive(liveText('liveStatus'), {});
+    appendLive(liveText('liveOptions'), {});
     appendLive('', {});
     if(cspBlocked){
-      appendLive('💡 CSPで止まったため、ネットワークリクエストは送信されていません', {});
+      appendLive(liveText('liveCspNotSent'), {});
     }else if(preflightEst){
-      appendLive('💡 プリフライトが拒否された場合、OPTIONSは届いても本リクエストは送信されません', {});
+      appendLive(liveText('livePreflightOnly'), {});
     }else{
-      appendLive('💡 シンプルリクエストは送信後にレスポンス読取が拒否された可能性があります。ただし通信障害との区別にはDevToolsが必要です', {});
+      appendLive(liveText('liveSimpleMaybeSent'), {});
     }
   }
 }
