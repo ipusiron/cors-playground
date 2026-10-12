@@ -169,6 +169,18 @@ if(nonSafeReqHeaders.length>0){
 - 判定関数はDOMを参照せず、引数だけから結果を返す
 - **差分検出**: リクエストヘッダーと許可ヘッダーの差分を計算
 
+### 2.3 レスポンスヘッダー公開判定
+
+`responseHeaderExposure()`は、レスポンスに存在するヘッダー名を、JavaScriptから読めるものと読めないものへ分けます。`Cache-Control`、`Content-Language`、`Content-Length`、`Content-Type`、`Expires`、`Last-Modified`、`Pragma`はCORS safelisted response-headerとして扱います。
+
+ACEHの`*`は資格情報なしの場合だけワイルドカードです。資格情報付きでは文字どおり`*`という名前だけに一致します。`Set-Cookie`と`Set-Cookie2`はforbidden response-header nameのため、明示的に列挙しても公開しません。ACEHの構文が無効な場合は、セーフリスト以外を公開しません。
+
+### 2.4 プリフライトキャッシュと共有状態
+
+`modelPreflightCache()`は、Max-Ageと2回目の要求時刻を使い、同じ照合条件を仮定した2イベントの時間軸を返します。Fetch標準のキャッシュキーにはnetwork partition key、origin、URL、credentials、method、header nameが関係します。実装による上限や期限前の削除があるため、この関数はOPTIONSの実測結果を表しません。
+
+共有リンクは`#cors=v1.<base64url(JSON)>`形式です。`normalizeScenario()`が許可キー、型、列挙値、長さ、数値範囲を検査し、未知キーを拒否します。共有と言語切替の一時保存は同じ安全なシナリオだけを使用し、Live FetchとpostMessageの値・本文・ログを含めません。動的な復元結果は既存の描画関数を呼び直して生成します。
+
 ---
 
 ## 3. セキュリティ実装

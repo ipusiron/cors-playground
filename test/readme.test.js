@@ -55,6 +55,11 @@ test('limits and diagnostic boundaries are equally documented', () => {
     assert.match(markdown, /TLS/);
     assert.match(markdown, /X-Content-Type-Options/);
     assert.match(markdown, /Permissions-Policy/);
+    assert.match(markdown, /Access-Control-Max-Age/);
+    assert.match(markdown, /Set-Cookie2/);
+    assert.match(markdown, /sessionStorage/);
+    assert.match(markdown, /Live Fetch/);
+    assert.match(markdown, /postMessage/);
   }
 });
 
