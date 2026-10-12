@@ -1,0 +1,10 @@
+{
+  "name": "cors-playground",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dependency-free tests for CORS Playground",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
