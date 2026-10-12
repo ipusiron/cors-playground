@@ -19,8 +19,7 @@
 // ========================================
 
 /**
- * DOMエ
-を取得する短縮ヘルパー
+ * DOM要素を取得する短縮ヘルパー
  * @param {string} id - 要素ID
  * @returns {HTMLElement}
  *
@@ -67,7 +66,8 @@ const SAFE_HEADERS = new Set([
   'accept',
   'accept-language',
   'content-language',
-  'content-type'  // ただし特定の値のみセーフ（SAFE_CONTENT_TYPES参照）
+  'content-type', // ただし特定の値のみセーフ（SAFE_CONTENT_TYPES参照）
+  'range'
 ]);
 
 /**
@@ -271,7 +271,7 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
   if(!SAFE_METHODS.has(m)){
     // 非セーフメソッド: ACAM で許可されているか確認
     const allowed = parseHeaderList(respACAM).map(x=>x.toUpperCase());
-    if(allowed.length === 0 || !allowed.includes(m)){
+    if(allowed.length === 0 || !(allowed.includes(m) || (!cred && allowed.includes('*')))){
       ok = false;
       explain.push(`NG: メソッド ${m} は ACAM で許可されていない。`);
     }else{
@@ -281,7 +281,7 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
 
   // ========== ACAH (ヘッダー) チェック ==========
   // 非セーフヘッダーをフィルタリング
-  const nonSafeReqHeaders = parseHeaderList(Q('simHeaders').value)
+  const nonSafeReqHeaders = reqHeaders
     .map(norm)
     .filter(h=>!SAFE_HEADERS.has(h));
 
@@ -290,7 +290,10 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
     const allowedH = parseHeaderList(respACAH).map(norm);
 
     // 差分検出: リクエストヘッダーのうち、許可リストにないものを抽出
-    const missing = nonSafeReqHeaders.filter(h=>!allowedH.includes(h));
+    const missing = nonSafeReqHeaders.filter(h=>{
+      if(allowedH.includes(h)) return false;
+      return !(h !== 'authorization' && !cred && allowedH.includes('*'));
+    });
 
     if(missing.length){
       ok = false;
@@ -301,6 +304,24 @@ function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, res
   }
 
   return {ok, explain};
+}
+
+function formatCoreNote(note){
+  const values = note.values || {};
+  const messages = {
+    acaoWildcardCredentials: 'NG: 資格情報付きリクエストでは ACAO:* を使用できない。',
+    acaoExactRequired: `NG: ACAO は発信元(${values.origin})との完全一致が必要。現在は "${values.actual}"。`,
+    acaoExactOk: 'OK: ACAO は発信元と一致。',
+    acacRequired: 'NG: 資格情報付きだが ACAC:true ではない。',
+    acacOk: 'OK: ACAC:true。',
+    acaoOk: 'OK: ACAO が発信元を許可。',
+    acaoDenied: `NG: ACAO が発信元(${values.origin})を許可していない。現在は "${values.actual}"。`,
+    methodDenied: `NG: メソッド ${values.method} は ACAM で許可されていない。`,
+    methodAllowed: `OK: メソッド ${values.method} は ACAM で許可。`,
+    headersDenied: `NG: リクエストヘッダー [${values.headers}] が ACAH で許可されていない。`,
+    headersAllowed: 'OK: 非セーフリストヘッダーは ACAH で許可。',
+  };
+  return messages[note.key] || note.key;
 }
 
 // ========================================
@@ -377,6 +398,8 @@ function doSimulate(){
   const method = Q('simMethod').value.toUpperCase();
   const ct = Q('simContentType').value;
   const headers = parseHeaderList(Q('simHeaders').value).map(norm);
+  const requestHeaders = headers.map((name)=>({ name, value: '' }));
+  if(ct) requestHeaders.push({ name: 'Content-Type', value: ct });
   const cred = Q('simCred').checked;
 
   // 現在のページのオリジン（シミュレーション用）
@@ -389,9 +412,17 @@ function doSimulate(){
   const ACAH = Q('simACAH').value;
 
   // ===== 判定実行 =====
-  const simple = isSimpleRequest(method, ct, headers);
-  const preflight = needsPreflight(method, ct, headers);
-  const {ok: decisionOk, explain} = finalDecision(origin, cred, method, headers, ACAO, ACAC, ACAM, ACAH);
+  const preflight = CorsCore.needsPreflight(method, requestHeaders);
+  const simple = !preflight;
+  const decision = CorsCore.finalDecision({
+    origin,
+    credentials: cred,
+    method,
+    requestHeaders,
+    response: { acao: ACAO, acac: ACAC, acam: ACAM, acah: ACAH },
+  });
+  const decisionOk = decision.ok;
+  const explain = decision.notes.map(formatCoreNote);
 
   // ===== 解説文生成 =====
   const notes = [];
