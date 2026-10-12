@@ -60,7 +60,21 @@ test('limits and diagnostic boundaries are equally documented', () => {
     assert.match(markdown, /sessionStorage/);
     assert.match(markdown, /Live Fetch/);
     assert.match(markdown, /postMessage/);
+    assert.match(markdown, /Vary: Origin/);
+    assert.match(markdown, /SameSite/);
+    assert.match(markdown, /Secure/);
+    assert.match(markdown, /Domain/);
+    assert.match(markdown, /Path/);
   }
+});
+
+test('both READMEs separate CORS permission, cookie transmission, and HTTP caching', () => {
+  assert.match(ja, /CORS許可だけではCookie送信を証明しない/);
+  assert.match(en, /CORS success does not prove that a cookie was sent/);
+  assert.match(ja, /プリフライトキャッシュとは別/);
+  assert.match(en, /separately from the preflight cache/);
+  assert.match(ja, /本リクエストが送られない/);
+  assert.match(en, /stops before the actual request/);
 });
 
 test('all local Markdown links resolve', () => {

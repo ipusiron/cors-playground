@@ -62,7 +62,7 @@ hub: true
 ## 📸 スクリーンショット
 
 >![CORS判定シミュレーター](assets/screenshot.png)
->*プリフライト判定と、ACEHによるレスポンスヘッダーの公開範囲を根拠付きで表示*
+>*HTTPレスポンスキャッシュのVary条件と、CORSとは別のCookie送信条件を根拠付きで表示*
 >
 >![CSPで許可されていない接続先の説明](assets/screenshot2.png)
 >*CSPによる事前拒否をCORSエラーと区別*
@@ -132,9 +132,12 @@ hub: true
   - 実験結果の比較まとめ表を提供
 - **入力フォーム**：メソッド、ヘッダー、Content-Type、Credentialsを自由に指定可能
 - **判定結果**：シンプルリクエスト判定 → プリフライト要否 → 最終可否を **フローチャート形式** で視覚化
+- **HTTP通信フロー**：OPTIONS、本リクエスト、本レスポンス、JavaScriptからの読取を順に表示し、プリフライト拒否時は本リクエストが送られないことを明示
 - **レスポンスヘッダー公開判定**：CORS safelisted response-headerとACEHから、JavaScriptで読める名前を確認
   - `Set-Cookie`と`Set-Cookie2`はACEHへ列挙しても公開しない
 - **プリフライトキャッシュモデル**：`Access-Control-Max-Age`と2回目の要求時刻を時間軸で比較
+- **HTTPレスポンスキャッシュ**：オリジンごとにACAOを変える応答について、`Vary: Origin`の有無を確認。プリフライトキャッシュとは別の仕組みとして扱う
+- **Cookie送信条件**：CORS応答の許可と、SameSite・Secure・第三者Cookie方針などの送信条件を分けて確認。CORS許可だけではCookie送信を証明しない
 - **共有リンク**：秘密値を含まないシミュレーター条件をURLフラグメントで共有し、同じ結果まで自動復元
 - **言語切替の状態保持**：安全なシミュレーター入力、選択タブ、折りたたみ状態だけを同一タブの`sessionStorage`で一時保持
 - 各判定結果には詳細な根拠説明が表示される
@@ -158,11 +161,12 @@ hub: true
 | シンプルリクエストを作れ | `GET`＋セーフリストヘッダーでプリフライトなしの成功例を確認 |
 | プリフライトを引き起こせ | `POST`＋`Content-Type: application/json` で OPTIONS 発生 |
 | ヘッダーが原因 | `Authorization: Bearer ...` が非セーフリストであることを確認 |
-| Cookieを伴うリクエスト | `withCredentials: true` 時の `ACAC` 必須条件を体験 |
+| Cookieを伴うリクエスト | CORS側の`ACAC`と、SameSite・Secure・第三者Cookie方針を別々に確認 |
 | ワイルドカードの罠 | `ACAO: *` と `withCredentials: true` の併用禁止を確認 |
 | メソッド不一致 | `DELETE` 送信時、`ACAM: GET, POST` のレスでブロックされる例を観察 |
 | ACEHのワイルドカード | 資格情報なし／ありで、`ACEH: *`から読めるレスポンスヘッダーが変わることを比較 |
 | プリフライトキャッシュ | Max-Ageの期限内・期限ちょうど・条件変更で、2回目のOPTIONSモデルが変わることを比較 |
+| 動的ACAOとHTTPキャッシュ | オリジンごとに応答を変える場合の`Vary: Origin`を確認 |
 
 ---
 
@@ -369,6 +373,8 @@ hub: true
 - サーバー設定や認可の安全性を監査すること
 - DevToolsやサーバーログを使わず、実際のOPTIONS応答を確認すること
 - プリフライトキャッシュの実際の上限、早期削除、OPTIONS省略を証明すること
+- CORS許可だけから、Cookieが送信されたことを証明すること。Domain、Path、有効期限、保存状態、SameSite、Secure、ブラウザー方針などは別途確認が必要です
+- `Vary: Origin`の表示は、入力したキャッシュ条件の教育用評価です。実際のCDN・プロキシー・ブラウザーキャッシュの保存や再利用を観測するものではありません
 
 #### 📋 セキュリティ問題の報告
 もしセキュリティ上の問題を発見された場合は、GitHubのIssuesから報告してください。

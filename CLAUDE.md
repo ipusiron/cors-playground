@@ -75,6 +75,9 @@ The application is organized into four tabs, providing a progressive learning pa
      - Non-safe headers must be in `Access-Control-Allow-Headers`
    - Evaluates CORS-safelisted response headers and `Access-Control-Expose-Headers`, including credentials and forbidden response-header names
    - Models `Access-Control-Max-Age` for a second matching request, while explicitly treating the timeline as educational rather than observed browser state
+   - Builds an ordered HTTP exchange from the same core result, including the point where a rejected preflight prevents the actual request
+   - Evaluates `Vary: Origin` for origin-dependent cacheable responses separately from the preflight cache
+   - Explains cookie transmission conditions separately from CORS permission; a successful CORS check never proves that a cookie was sent
    - Creates versioned share fragments from an allowlisted schema and restores the evaluated result
    - Renders visual flow diagram showing decision steps
 
@@ -210,6 +213,9 @@ function needsPreflight(method, headers) {
 
 - `responseHeaderExposure()` applies the response-header safelist, ACEH, the credentials wildcard rule, and the forbidden `Set-Cookie` / `Set-Cookie2` names.
 - `modelPreflightCache()` shows a two-request educational timeline. It does not claim to observe a browser's cache.
+- `buildCorsExchange()` renders request and response stages without duplicating CORS decision rules in the UI layer.
+- `assessVaryOrigin()` concerns ordinary HTTP response caching, not the preflight cache.
+- `explainCredentialConditions()` keeps CORS readability separate from cookie SameSite, Secure, storage, scope, and browser-policy conditions.
 - `encodeScenario()` and `decodeScenario()` use a versioned, length-limited, allowlisted fragment schema.
 - Language-switch state uses the same normalized simulator schema and is consumed from sessionStorage after navigation.
 
