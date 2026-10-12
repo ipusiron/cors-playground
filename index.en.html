@@ -149,6 +149,13 @@
           <div id="simFlow" class="flow" aria-live="polite"></div>
           <div class="log"><div class="log-head">Explanation</div><pre id="simExplain" class="pre" aria-live="polite" aria-atomic="true"></pre></div>
         </article>
+        <article class="card exchange-card">
+          <h2>HTTP exchange flow</h2>
+          <p class="muted">Follow OPTIONS, the actual request, and JavaScript response access for the current conditions.</p>
+          <ol id="simExchange" class="exchange-flow" aria-live="polite" aria-atomic="true"></ol>
+          <p id="simExchangeOutcome" class="exchange-outcome" role="status"></p>
+          <p class="muted small">This is a learning model, not proof of network traffic. Confirm actual requests in DevTools Network or server logs.</p>
+        </article>
         <article class="card">
           <h2>Response headers readable by JavaScript</h2>
           <p class="muted">Enter the response header names, then compare them with ACEH and the credentials mode.</p>

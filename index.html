@@ -1565,6 +1565,14 @@
           </div>
         </div>
 
+        <div class="card exchange-card">
+          <h2>HTTP通信フロー</h2>
+          <p class="muted">現在の条件から、OPTIONS、本リクエスト、レスポンスの読取までを順に示します。</p>
+          <ol id="simExchange" class="exchange-flow" aria-live="polite" aria-atomic="true"></ol>
+          <p id="simExchangeOutcome" class="exchange-outcome" role="status"></p>
+          <p class="muted small">これは通信の学習用モデルです。実際に送信された要求の証明ではありません。DevToolsのNetworkやサーバーログで確認してください。</p>
+        </div>
+
         <div class="card">
           <h2>JavaScriptから読めるレスポンスヘッダー</h2>
           <p class="muted">レスポンスに含まれるヘッダー名を入力し、ACEHと資格情報の条件から公開範囲を確認します。</p>

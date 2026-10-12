@@ -146,3 +146,42 @@ test('share scenario rejects missing, unknown, oversized, and invalid fields', (
   const payload = Buffer.from(JSON.stringify(compact)).toString('base64url');
   assert.throws(() => core.decodeScenario(`#cors=v1.${payload}`), /unknownField/);
 });
+
+test('HTTP exchange sends a simple request before deciding response readability', () => {
+  const result = core.buildCorsExchange({
+    origin: 'https://client.example', method: 'GET', requestHeaders: [], credentials: false,
+    response: { acao: 'https://other.example' },
+  });
+  assert.equal(result.outcome, 'unreadableAfterResponse');
+  assert.deepEqual(result.stages.map((stage) => [stage.key, stage.status]), [
+    ['actualRequest', 'sent'], ['actualResponse', 'received'], ['javascriptAccess', 'blocked'],
+  ]);
+});
+
+test('HTTP exchange stops the actual request when preflight is rejected', () => {
+  const result = core.buildCorsExchange({
+    origin: 'https://client.example', method: 'PUT',
+    requestHeaders: [{ name: 'Authorization', value: '' }], credentials: false,
+    response: { acao: 'https://client.example', acam: 'GET', acah: '' },
+  });
+  assert.equal(result.outcome, 'stoppedBeforeActual');
+  assert.deepEqual(result.stages.map((stage) => [stage.key, stage.status]), [
+    ['preflightRequest', 'sent'], ['preflightResponse', 'blocked'], ['actualRequest', 'notSent'],
+  ]);
+  assert.equal(result.stages[0].lines.find((line) => line.name === 'Access-Control-Request-Headers').value, 'authorization');
+});
+
+test('HTTP exchange continues after an allowed preflight', () => {
+  const result = core.buildCorsExchange({
+    origin: 'https://client.example', method: 'PUT',
+    requestHeaders: [{ name: 'X-Trace-Id', value: '' }], credentials: false,
+    response: {
+      acao: 'https://client.example', acam: 'PUT', acah: 'X-Trace-Id', aceh: 'X-Trace-Id',
+    },
+  });
+  assert.equal(result.outcome, 'readable');
+  assert.deepEqual(result.stages.map((stage) => stage.key), [
+    'preflightRequest', 'preflightResponse', 'actualRequest', 'actualResponse', 'javascriptAccess',
+  ]);
+  assert.equal(result.stages.at(-1).status, 'allowed');
+});

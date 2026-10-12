@@ -90,7 +90,8 @@ test('interactive disclosure and dynamic results expose accessible state', () =>
   const html = read('index.html');
   assert.equal((html.match(/data-accordion-target=/g) || []).length, 7);
   assert.equal((html.match(/data-help-target=/g) || []).length, 2);
-  assert.equal((html.match(/aria-live="polite"/g) || []).length, 7);
+  assert.equal((html.match(/aria-live="polite"/g) || []).length, 8);
+  assert.match(html, /id="simExchange"[^>]*aria-live="polite"/u);
   assert.doesNotMatch(read('js/sop-lab.js'), /innerHTML/);
   assert.match(read('js/app.js'), /aria-expanded/);
 });

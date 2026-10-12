@@ -321,6 +321,73 @@
     return { ok, notes, preflight: needsPreflight(method, requestHeaders) };
   }
 
+  function responseCorsLines(response, statusLine) {
+    const headers = response || {};
+    const lines = [{ name: '', value: statusLine }];
+    [
+      ['Access-Control-Allow-Origin', 'acao'],
+      ['Access-Control-Allow-Credentials', 'acac'],
+      ['Access-Control-Allow-Methods', 'acam'],
+      ['Access-Control-Allow-Headers', 'acah'],
+      ['Access-Control-Expose-Headers', 'aceh'],
+    ].forEach(([name, key]) => {
+      const value = String(headers[key] || '').trim();
+      if (value) lines.push({ name, value });
+    });
+    return lines;
+  }
+
+  function buildCorsExchange(config) {
+    const origin = String(config && config.origin || 'https://client.example');
+    const method = String(config && config.method || 'GET').toUpperCase();
+    const requestHeaders = Array.isArray(config && config.requestHeaders) ? config.requestHeaders : [];
+    const response = config && config.response || {};
+    const credentials = Boolean(config && config.credentials);
+    const decision = finalDecision({ origin, method, requestHeaders, response, credentials });
+    const unsafeNames = unsafeRequestHeaderNames(requestHeaders);
+    const actualRequestLines = [
+      { name: '', value: `${method} /resource HTTP/1.1` },
+      { name: 'Origin', value: origin },
+      ...requestHeaders
+        .filter((entry) => normalizeName(entry && entry.name))
+        .map((entry) => ({
+          name: String(entry.name).trim(),
+          value: String(entry.value || '') || null,
+        })),
+    ];
+    const stages = [];
+
+    if (decision.preflight) {
+      const preflightLines = [
+        { name: '', value: 'OPTIONS /resource HTTP/1.1' },
+        { name: 'Origin', value: origin },
+        { name: 'Access-Control-Request-Method', value: method },
+      ];
+      if (unsafeNames.length) {
+        preflightLines.push({ name: 'Access-Control-Request-Headers', value: unsafeNames.join(', ') });
+      }
+      stages.push({ key: 'preflightRequest', status: 'sent', lines: preflightLines });
+      stages.push({
+        key: 'preflightResponse',
+        status: decision.ok ? 'allowed' : 'blocked',
+        lines: responseCorsLines(response, 'HTTP/1.1 204 No Content'),
+      });
+      if (!decision.ok) {
+        stages.push({ key: 'actualRequest', status: 'notSent', lines: actualRequestLines });
+        return { decision, stages, outcome: 'stoppedBeforeActual' };
+      }
+    }
+
+    stages.push({ key: 'actualRequest', status: 'sent', lines: actualRequestLines });
+    stages.push({
+      key: 'actualResponse',
+      status: 'received',
+      lines: responseCorsLines(response, 'HTTP/1.1 200 OK'),
+    });
+    stages.push({ key: 'javascriptAccess', status: decision.ok ? 'allowed' : 'blocked', lines: [] });
+    return { decision, stages, outcome: decision.ok ? 'readable' : 'unreadableAfterResponse' };
+  }
+
   function parseHeaderLines(text) {
     const headers = [];
     const errors = [];
@@ -366,6 +433,7 @@
     SAFE_METHODS,
     SAFE_CONTENT_TYPES,
     SAFE_RESPONSE_HEADERS,
+    buildCorsExchange,
     decodeScenario,
     encodeScenario,
     finalDecision,

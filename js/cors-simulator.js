@@ -175,6 +175,49 @@ function appendHeaderResult(container, heading, entries, className){
   container.appendChild(group);
 }
 
+function renderExchange(config){
+  const exchange = CorsCore.buildCorsExchange(config);
+  const container = Q('simExchange');
+  const statusKeys = {
+    sent: 'exchangeSent', received: 'exchangeReceived', allowed: 'exchangeAllowed',
+    blocked: 'exchangeBlocked', notSent: 'exchangeNotSent',
+  };
+  const titleKeys = {
+    preflightRequest: 'exchangePreflightRequest', preflightResponse: 'exchangePreflightResponse',
+    actualRequest: 'exchangeActualRequest', actualResponse: 'exchangeActualResponse',
+    javascriptAccess: 'exchangeJavascriptAccess',
+  };
+  container.replaceChildren();
+  exchange.stages.forEach((stage, index)=>{
+    const item = document.createElement('li');
+    item.className = `exchange-step ${stage.status === 'notSent' ? 'not-sent' : stage.status}`;
+    const number = document.createElement('span');
+    number.className = 'exchange-step-number';
+    number.textContent = String(index + 1);
+    const body = document.createElement('div');
+    const heading = document.createElement('h3');
+    heading.textContent = simText(titleKeys[stage.key]);
+    const status = document.createElement('p');
+    status.className = 'exchange-step-status';
+    status.textContent = simText(statusKeys[stage.status]);
+    body.append(heading, status);
+    if(stage.lines.length){
+      const code = document.createElement('pre');
+      code.textContent = stage.lines.map((line)=>{
+        if(!line.name) return line.value;
+        return `${line.name}: ${line.value == null ? simText('exchangeValueNotModeled') : line.value}`;
+      }).join('\n');
+      body.appendChild(code);
+    }
+    item.append(number, body);
+    container.appendChild(item);
+  });
+  const outcomeKeys = {
+    readable: 'exchangeReadable', stoppedBeforeActual: 'exchangeStopped', unreadableAfterResponse: 'exchangeUnreadable',
+  };
+  Q('simExchangeOutcome').textContent = simText(outcomeKeys[exchange.outcome]);
+}
+
 function renderAdvanced(preflight, credentials){
   const exposure = CorsCore.responseHeaderExposure({
     credentials,
@@ -292,6 +335,10 @@ function doSimulate(){
 
   // ===== UIレンダリング =====
   renderFlow({simple, preflight, decisionOk, notes});
+  renderExchange({
+    origin, credentials: cred, method, requestHeaders,
+    response: { acao: ACAO, acac: ACAC, acam: ACAM, acah: ACAH, aceh: Q('simACEH').value },
+  });
   renderAdvanced(preflight, cred);
 }
 
