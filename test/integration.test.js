@@ -38,8 +38,8 @@ test('simulator uses core results rather than DOM rereads in final decision', ()
   const source = read('js/cors-simulator.js');
   assert.match(source, /CorsCore\.needsPreflight/);
   assert.match(source, /CorsCore\.finalDecision/);
-  const functionBody = source.slice(source.indexOf('function finalDecision'), source.indexOf('function formatCoreNote'));
-  assert.doesNotMatch(functionBody, /Q\('simHeaders'\)/);
+  assert.doesNotMatch(source, /function\s+(?:isSimpleRequest|needsPreflight|finalDecision)\s*\(/u);
+  assert.doesNotMatch(source, /const\s+SAFE_(?:METHODS|HEADERS|CONTENT_TYPES)\b/u);
   assert.match(source, /CorsCore\.responseHeaderExposure/);
   assert.match(source, /CorsCore\.modelPreflightCache/);
   assert.doesNotMatch(source, /innerHTML/);
