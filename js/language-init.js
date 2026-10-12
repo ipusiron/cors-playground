@@ -5,9 +5,12 @@
   let stored = null;
   try { stored = localStorage.getItem('corspg-language'); } catch (error) { stored = null; }
   const detected = navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en';
+  const explicitDocument = /\/index\.en\.html$/i.test(location.pathname)
+    ? 'en'
+    : (/\/index\.html$/i.test(location.pathname) ? 'ja' : null);
   const language = ['ja', 'en'].includes(requested)
     ? requested
-    : (['ja', 'en'].includes(stored) ? stored : detected);
+    : (explicitDocument || (['ja', 'en'].includes(stored) ? stored : detected));
   try { localStorage.setItem('corspg-language', language); } catch (error) { /* optional */ }
 
   const current = document.documentElement.lang === 'en' ? 'en' : 'ja';

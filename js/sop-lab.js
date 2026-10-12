@@ -86,7 +86,7 @@ document.getElementById('btnPostMessage').addEventListener('click', ()=>{
   const msg = pmMessageInput.value || sopText('empty');
   const target = pmTargetSelect.value;
   if(target === 'safe'){
-    const targetOrigin = location.origin === 'null' ? '*' : location.origin;
+    const targetOrigin = location.protocol === 'file:' ? '*' : location.origin;
     frameSafe.contentWindow.postMessage({kind:'demo', msg}, targetOrigin);
   }else{
     frameSandboxed.contentWindow.postMessage({kind:'demo', msg}, '*');
@@ -98,7 +98,10 @@ window.addEventListener('message', (ev)=>{
   const fromSafe = ev.source === frameSafe.contentWindow;
   const fromSandboxed = ev.source === frameSandboxed.contentWindow;
   const safeOrigin = location.origin;
-  const validSafe = fromSafe && (safeOrigin === 'null' || ev.origin === safeOrigin);
+  const validSafe = fromSafe && (
+    (location.protocol === 'file:' && ev.origin === 'null') ||
+    ev.origin === safeOrigin
+  );
   const validSandboxed = fromSandboxed && ev.origin === 'null';
   if(!validSafe && !validSandboxed){
     appendPmLog(sopText('pmRejected', { origin: ev.origin || 'null' }));

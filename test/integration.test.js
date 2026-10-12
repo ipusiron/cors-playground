@@ -59,6 +59,28 @@ test('interactive disclosure and dynamic results expose accessible state', () =>
   assert.match(read('js/app.js'), /aria-expanded/);
 });
 
+test('SOP lab frames use restrictive CSPs', () => {
+  for (const file of ['labs/iframe-safe.html', 'labs/iframe-safe.en.html']) {
+    const html = read(file);
+    assert.match(html, /default-src 'none'; script-src 'self'/);
+    assert.match(html, /src="iframe-lab\.js"/);
+    assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/i);
+  }
+
+  for (const file of ['labs/iframe-sandboxed.html', 'labs/iframe-sandboxed.en.html']) {
+    const html = read(file);
+    assert.match(html, /default-src 'none'; script-src 'sha256-/);
+    assert.doesNotMatch(html, /script-src[^;]*'unsafe-inline'/);
+    assert.match(html, /event\.source!==parent/);
+  }
+
+  const source = read('labs/iframe-lab.js');
+  assert.match(source, /event\.source !== parent/);
+  assert.match(source, /event\.origin !== ownOrigin/);
+  assert.match(source, /location\.protocol === 'file:'/);
+  assert.match(read('js/sop-lab.js'), /location\.protocol === 'file:'/);
+});
+
 test('mobile controls keep readable input size and all four tabs visible', () => {
   const css = read('css/style.css');
   assert.match(css, /grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)/);
@@ -79,6 +101,7 @@ test('English page has all functional controls and bilingual scripts', () => {
   assert.match(read('js/messages.js'), /ja:\s*\{/);
   assert.match(read('js/messages.js'), /en:\s*\{/);
   assert.match(read('js/language-init.js'), /navigator\.language/);
+  assert.match(read('js/language-init.js'), /explicitDocument/);
 });
 
 test('English static UI has no Japanese outside the language link', () => {

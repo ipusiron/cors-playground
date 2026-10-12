@@ -22,17 +22,20 @@
 
 ```
 cors-playground/
-├─ index.html              # 単一HTMLファイル（SPAライク構造）
+├─ index.html / index.en.html # 日英の画面
 ├─ css/
 │  └─ style.css           # CSS変数ベースのテーマシステム
 ├─ js/
-│  ├─ app.js              # タブ切替制御（最小限のルーティング）
-│  ├─ cors-simulator.js   # CORS判定エンジン
+│  ├─ cors-core.js        # DOM非依存のCORS判定コア
+│  ├─ messages.js         # 動的文言の日英辞書
+│  ├─ language-init.js    # 初期言語の決定
+│  ├─ app.js              # タブ・テーマ・開閉制御
+│  ├─ cors-simulator.js   # 判定画面
 │  ├─ live-fetch.js       # 実リクエスト実験機能
 │  └─ sop-lab.js          # SOP実験（iframe + postMessage）
-└─ labs/
-   ├─ iframe-safe.html    # 同一オリジンiframe用
-   └─ iframe-sandboxed.html # sandbox iframe用
+├─ labs/                  # 日英のiframe文書
+│  └─ iframe-lab.js       # iframe側のpostMessage処理
+└─ test/                  # node:test
 ```
 
 ### 1.2 設計方針
@@ -48,26 +51,18 @@ cors-playground/
 
 ### 2.1 シンプルリクエスト判定
 
-**ファイル**: `js/cors-simulator.js`
+**ファイル**: `js/cors-core.js`
 
 #### アルゴリズム概要
 
 ```javascript
-function isSimpleRequest(method, contentType, headers){
-  // 条件1: メソッドがセーフリストに含まれる
-  if(!SAFE_METHODS.has(method)) return false;
-
-  // 条件2: Content-Typeがセーフリストに含まれる（指定されている場合）
-  if(contentType && !SAFE_CONTENT_TYPES.has(contentType)) return false;
-
-  // 条件3: すべてのカスタムヘッダーがセーフリストに含まれる
-  for(const h of headers){
-    if(!SAFE_HEADERS.has(norm(h))) return false;
-  }
-
-  return true; // すべての条件を満たす場合のみtrue
+function needsPreflight(method, headers) {
+  return !SAFE_METHODS.has(String(method || '').toUpperCase())
+    || unsafeRequestHeaderNames(headers).length > 0;
 }
 ```
+
+`headers`は名前だけでなく値を持つ配列です。Content-Typeのmedia type essence、1値128バイト、セーフリスト値の合計1,024バイト、単一Rangeを検査します。
 
 #### 技術的ポイント
 
@@ -82,11 +77,12 @@ function isSimpleRequest(method, contentType, headers){
    - 条件を満たさない場合は即座に `false` を返す
    - 不要な処理を実行しない
 
-3. **大文字小文字の正規化**
+3. **大文字小文字の正規化と値検査**
    ```javascript
    function norm(name){ return (name||'').toLowerCase(); }
    ```
    - ヘッダー名の比較を大文字小文字非依存にする
+   - 名前が同じでも値が仕様条件を外れればプリフライト対象にする
 
 ### 2.2 最終可否判定ロジック
 
@@ -115,11 +111,13 @@ function isSimpleRequest(method, contentType, headers){
 3. ACAM（Access-Control-Allow-Methods）チェック
    └─ 非セーフメソッドの場合
       ├─ メソッドが許可リストに含まれる → OK
+      ├─ 資格情報なしで * → OK
       └─ その他 → NG
 
 4. ACAH（Access-Control-Allow-Headers）チェック
    └─ 非セーフヘッダーが存在する場合
       ├─ すべてのヘッダーが許可リストに含まれる → OK
+      ├─ 資格情報なしで * → OK（Authorizationは明示が必要）
       └─ 一部でも含まれない → NG（不足ヘッダーをリスト化）
 ```
 
@@ -156,13 +154,11 @@ const allowExact = respACAO === origin;
 **3. 不足ヘッダーの特定**
 
 ```javascript
-const nonSafeReqHeaders = parseHeaderList(Q('simHeaders').value)
-  .map(norm)
-  .filter(h=>!SAFE_HEADERS.has(h));
+const nonSafeReqHeaders = unsafeRequestHeaderNames(requestHeaders);
 
 if(nonSafeReqHeaders.length>0){
   const allowedH = parseHeaderList(respACAH).map(norm);
-  const missing = nonSafeReqHeaders.filter(h=>!allowedH.includes(h));
+  const missing = nonSafeReqHeaders.filter(name => !allowedH.includes(name));
   if(missing.length){
     ok = false;
     explain.push(`NG: 非セーフリストヘッダー [${missing.join(', ')}] が ACAH で許可されていない。`);
@@ -170,7 +166,7 @@ if(nonSafeReqHeaders.length>0){
 }
 ```
 
-- 配列メソッドチェーン（`map` → `filter`）による関数型アプローチ
+- 判定関数はDOMを参照せず、引数だけから結果を返す
 - **差分検出**: リクエストヘッダーと許可ヘッダーの差分を計算
 
 ---
@@ -235,7 +231,7 @@ function appendLive(line, obj){
 ```
 
 - **原則**: ユーザー入力は `textContent` で挿入
-- **例外**: `innerHTML` は空文字列でのクリア時のみ使用
+- 動的な説明は`createElement()`、既存表示の消去は`replaceChildren()`を使用
 
 #### JSON.stringify によるエスケープ
 
@@ -253,7 +249,7 @@ JSON.stringify(obj, null, 2)
 ```html
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline';
+  script-src 'self';
   style-src 'self' 'unsafe-inline';
   connect-src 'self' https://httpbin.org https://raw.githubusercontent.com https://example.com;
   img-src 'self' data:;
@@ -267,9 +263,9 @@ JSON.stringify(obj, null, 2)
 
 #### 設計判断
 
-1. **`unsafe-inline` の許可理由**
-   - 教育ツールとしてのシンプルさを優先
-   - インラインイベントハンドラ（`onclick`等）を使用
+1. **インラインスクリプトの不使用**
+   - イベントは外部JSから`addEventListener()`で登録
+   - `script-src`に`'unsafe-inline'`を含めない
 
 2. **connect-src のホワイトリスト**
    - 実験に必要な外部オリジンのみ許可
@@ -278,6 +274,10 @@ JSON.stringify(obj, null, 2)
 3. **`frame-ancestors` の不在**
    - `<meta>`タグ経由のCSPでは効果がないため削除
    - HTTPレスポンスヘッダーでのみ有効
+
+4. **HTTPレスポンスヘッダー専用項目**
+   - `X-Content-Type-Options`、`Permissions-Policy`、`X-Frame-Options`はmeta要素で代用しない
+   - GitHub Pagesのリポジトリーから設定できないため、未設定であることを文書に明記
 
 ---
 
@@ -318,20 +318,10 @@ document.getElementById('btnReadSandboxed').addEventListener('click', ()=>{
   }catch(e){
     sandboxedResult.textContent = `❌ ブロックされました`;
 
-    // 動的に詳細解説を追加
-    const actionSection = sandboxedResult.closest('.experiment-action');
-    let explanation = actionSection.querySelector('.result-explanation');
-    if(!explanation){
-      explanation = document.createElement('div');
-      explanation.className = 'result-explanation error';
-      actionSection.appendChild(explanation);
-    }
-    explanation.innerHTML = `
-      <h5>✓ なぜブロックされたのか？</h5>
-      <p>このiframeには<code>sandbox</code>属性が付いていますが、
-         <code>allow-same-origin</code>が含まれていません。</p>
-      <p><strong>エラーメッセージ：</strong> <code>${e.message}</code></p>
-    `;
+    renderExplanation(actionSection, {
+      heading: sopText('sopBlockedHeading'),
+      paragraphs: [[{ text: sopText('sopSandbox1') }]],
+    });
   }
 });
 ```
@@ -405,38 +395,23 @@ appendLive('✓ サーバーが適切なCORSヘッダーを返したため、ブ
 #### 失敗時フィードバック
 
 ```javascript
-appendLive('❌ Fetch Error (ブラウザーがブロック)', { error: String(err) });
-appendLive('━━━ 📚 解説：なぜ失敗したのか？ ━━━', {});
-appendLive('✗ CORSエラーの可能性が高いです。以下を確認してください:', {});
-appendLive('1. サーバーがAccess-Control-Allow-Originヘッダーを返していない', {});
-appendLive('2. withCredentials=trueなのに、サーバーがAccess-Control-Allow-Origin: *を返している', {});
-appendLive('3. Preflightリクエスト（OPTIONS）で、サーバーが適切なヘッダーを返していない', {});
-appendLive('🔍 詳細確認方法:', {});
-appendLive('→ DevTools（F12）を開いて、Networkタブを確認', {});
+const cspBlocked = lastConnectSrcViolation
+  && Date.now() - lastConnectSrcViolation.at < 2000;
+appendLive(liveText('liveFailed'), { error: String(err) });
+appendLive(cspBlocked ? liveText('liveCspDetected') : liveText('liveIndeterminate'), {});
 ```
+
+許可リスト外のURLは`inspectTarget()`で通信前に停止します。`securitypolicyviolation`も監視します。それ以外の`TypeError`はCORS、DNS、TLS、オフラインなどを区別できないため、断定しません。
 
 ### 5.2 プリフライト推定アルゴリズム
 
 ```javascript
-function willPreflight(method, ct, headers){
-  const SAFE_METHODS = new Set(['GET','HEAD','POST']);
-  const SAFE_HEADERS = new Set(['accept','accept-language','content-language','content-type']);
-  const SAFE_CT = new Set(['text/plain','application/x-www-form-urlencoded','multipart/form-data']);
-
-  if(!SAFE_METHODS.has(method)) return true;
-  if(ct && !SAFE_CT.has(ct)) return true;
-
-  for(const k of Object.keys(headers)){
-    if(!SAFE_HEADERS.has(k.toLowerCase())) return true;
-  }
-  return false;
-}
+const preflightEst = CorsCore.needsPreflight(method, requestHeaderEntries);
 ```
 
 #### 活用方法
 
 ```javascript
-const preflightEst = willPreflight(method, ct, headers);
 appendLive('Request ->', { url, ...options, preflight_estimated: preflightEst });
 ```
 

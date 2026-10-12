@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-frame-kind="sandboxed">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rwp+bUMHXITOWeRtiBsNNF1YBK0Gbjh7sN8qcLNAWdI='; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
   <title>SOP-Lab Sandboxed Frame</title>
   <style>
     body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:0; padding:10px}
@@ -14,12 +15,6 @@
     <h3>sandbox iframe（allow-same-origin なし）</h3>
     <p>このフレームは <b>origin: null</b> として扱われます。親ページは <code>contentDocument</code> にアクセスできません。</p>
   </div>
-  <script>
-    // sandbox だが postMessage は有効。origin は "null"。
-    window.addEventListener('message', (ev)=>{
-      // sandbox では ev.origin === "null"（UAに依存）。返信は targetOrigin="*"
-      ev.source && ev.source.postMessage({ from:'sandboxed-frame', echo: ev.data }, '*');
-    });
-  </script>
+  <script>window.addEventListener('message',(event)=>{if(event.source!==parent)return;const targetOrigin=event.origin==='null'?'*':event.origin;parent.postMessage({from:'sandboxed-frame',echo:event.data},targetOrigin);});</script>
 </body>
 </html>
