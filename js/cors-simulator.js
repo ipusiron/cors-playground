@@ -343,13 +343,13 @@ function formatCoreNote(note){
  * - ユーザーが視覚的に理解しやすい
  *
  * @dom_manipulation
- * - innerHTML='' でクリア
+ * - replaceChildren()でクリア
  * - createElement + appendChild による動的生成
  * - textContent でXSS防止
  */
 function renderFlow({simple, preflight, decisionOk, notes}){
   const flow = Q('simFlow');
-  flow.innerHTML = ''; // 既存の内容をクリア
+  flow.replaceChildren(); // 既存の内容をクリア
 
   /**
    * ノード要素を追加するヘルパー

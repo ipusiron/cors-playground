@@ -39,3 +39,27 @@ test('simulator uses core results rather than DOM rereads in final decision', ()
   const functionBody = source.slice(source.indexOf('function finalDecision'), source.indexOf('function formatCoreNote'));
   assert.doesNotMatch(functionBody, /Q\('simHeaders'\)/);
 });
+
+test('CSP and metadata do not claim unsupported header behavior', () => {
+  const html = read('index.html');
+  assert.doesNotMatch(html, /http-equiv="(?:X-Content-Type-Options|Permissions-Policy)"/i);
+  assert.match(html, /script-src 'self';/);
+  assert.doesNotMatch(html, /script-src[^;]*'unsafe-inline'/);
+  assert.doesNotMatch(html, /onclick=/);
+});
+
+test('interactive disclosure and dynamic results expose accessible state', () => {
+  const html = read('index.html');
+  assert.equal((html.match(/data-accordion-target=/g) || []).length, 7);
+  assert.equal((html.match(/data-help-target=/g) || []).length, 2);
+  assert.equal((html.match(/aria-live="polite"/g) || []).length, 4);
+  assert.doesNotMatch(read('js/sop-lab.js'), /innerHTML/);
+  assert.match(read('js/app.js'), /aria-expanded/);
+});
+
+test('mobile controls keep readable input size and all four tabs visible', () => {
+  const css = read('css/style.css');
+  assert.match(css, /grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /font-size:16px/);
+  assert.match(css, /\.comparison-table,[\s\S]*overflow-x:auto/);
+});

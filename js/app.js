@@ -26,7 +26,7 @@
  * 3. クリック時：すべてのactive状態をクリア → 選択されたタブのみactive
  *
  * @performance
- * - イベントデリゲーションは不要（ボタン数が少ない：3個）
+ * - イベントデリゲーションは不要（現在は4タブ）
  * - 直接バインドの方がシンプルで読みやすい
  */
 (function initTabs(){
@@ -88,15 +88,24 @@
     }
   }
 
-  // localStorageから前回の設定を読み込み（デフォルトはlight）
-  const stored = localStorage.getItem(key) || 'light';
+  // localStorageが拒否される環境でも、デフォルトのlightで動作を続ける
+  let stored = 'light';
+  try {
+    stored = localStorage.getItem(key) || 'light';
+  } catch (error) {
+    stored = 'light';
+  }
   apply(stored);
 
   // テーマ切替ボタンのクリックイベント
   btn.addEventListener('click', ()=>{
     // 現在のテーマを判定し、逆のテーマに切り替え
     const next = root.classList.contains('dark') ? 'light' : 'dark';
-    localStorage.setItem(key, next);
+    try {
+      localStorage.setItem(key, next);
+    } catch (error) {
+      // 保存できなくても、現在のページではテーマを切り替える
+    }
     apply(next);
   });
 })();
@@ -110,19 +119,19 @@
  *
  * @param {string} id - パネル要素のID
  *
- * @usage
- * HTML: <button onclick="toggleHelp('helpPanel1')">ヘルプ表示</button>
- *
- * @note
- * - グローバルスコープに配置（onclickから呼び出すため）
- * - 冪等性：複数回呼び出しても問題なし（.toggle()を使用）
+ * data-help-target属性を持つbuttonから呼び出す。
  */
-function toggleHelp(id){
+function toggleHelp(id, button){
   const panel = document.getElementById(id);
   if(panel){
     panel.classList.toggle('visible');
+    button.setAttribute('aria-expanded', String(panel.classList.contains('visible')));
   }
 }
+
+document.querySelectorAll('[data-help-target]').forEach((button)=>{
+  button.addEventListener('click', ()=>toggleHelp(button.dataset.helpTarget, button));
+});
 
 // ========================================
 // アコーディオン制御
@@ -142,16 +151,34 @@ function toggleHelp(id){
  * - .accordion-card.open { ... } でスタイルが適用される
  * - max-height transitionによる滑らかなアニメーション
  *
- * @usage
- * HTML: <div class="accordion-header" onclick="toggleAccordion('content1')">
+ * data-accordion-target属性を持つbuttonから呼び出す。
  */
-function toggleAccordion(contentId){
+function toggleAccordion(contentId, button){
   const content = document.getElementById(contentId);
   if(content){
     // closest()でもっとも近い親の.accordion-card要素を検索
     const card = content.closest('.accordion-card');
     if(card){
       card.classList.toggle('open');
+      button.setAttribute('aria-expanded', String(card.classList.contains('open')));
     }
   }
 }
+
+document.querySelectorAll('[data-accordion-target]').forEach((button)=>{
+  button.addEventListener('click', ()=>toggleAccordion(button.dataset.accordionTarget, button));
+});
+
+(function renderCurrentUrls(){
+  const pageUrl = location.href.split('#', 1)[0];
+  const values = {
+    parentUrl1: pageUrl,
+    parentUrl2: pageUrl,
+    childUrl1: new URL('labs/iframe-safe.html', pageUrl).href,
+    childUrl2: new URL('labs/iframe-sandboxed.html', pageUrl).href,
+  };
+  Object.entries(values).forEach(([id, value])=>{
+    const element = document.getElementById(id);
+    if(element) element.textContent = value;
+  });
+})();

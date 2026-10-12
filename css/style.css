@@ -65,15 +65,19 @@ body{
 .header-actions .btn{margin-left:8px}
 
 .tabs{
-  display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border);
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; padding:10px 12px; border-bottom:1px solid var(--border);
   position:sticky; top:0; background:var(--bg); z-index:5;
   max-width:1400px;
   margin:0 auto;
 }
 .tab-btn{
   border:1px solid var(--border); background:var(--card); color:var(--fg);
-  padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600;
+  min-height:44px; padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600;
   transition:all 0.2s ease;
+  overflow-wrap:anywhere;
+}
+@media (min-width:600px){
+  .tabs{display:flex; justify-content:center; flex-wrap:wrap}
 }
 .tab-btn:hover:not(.active){
   background:color-mix(in srgb, var(--card) 95%, var(--accent));
@@ -156,6 +160,7 @@ body{
 input[type="text"], input[type="url"], input[type="number"], select, textarea{
   width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--fg);
   transition:border-color 0.2s ease, box-shadow 0.2s ease;
+  font-size:16px;
 }
 input:focus, select:focus, textarea:focus{
   outline:none;
@@ -1158,9 +1163,19 @@ footer{margin:24px 0 120px}
   transition:background 0.2s ease;
   border-radius:8px;
   margin:-4px 0;
+  width:100%;
+  border:0;
+  background:transparent;
+  color:var(--fg);
+  font:inherit;
+  text-align:left;
 }
 .accordion-header:hover{
   background:color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.accordion-header:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:4px;
 }
 .accordion-header h2{
   margin:0;
@@ -1369,6 +1384,13 @@ footer{margin:24px 0 120px}
   border-collapse:collapse;
   margin:12px 0;
   font-size:13px;
+}
+.comparison-table,
+.preset-table{
+  display:block;
+  max-width:100%;
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
 }
 .preset-table th{
   text-align:left;
