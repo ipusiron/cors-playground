@@ -73,6 +73,9 @@ The application is organized into four tabs, providing a progressive learning pa
      - `withCredentials=true` requires `Access-Control-Allow-Credentials: true`
      - Non-safe methods must be in `Access-Control-Allow-Methods`
      - Non-safe headers must be in `Access-Control-Allow-Headers`
+   - Evaluates CORS-safelisted response headers and `Access-Control-Expose-Headers`, including credentials and forbidden response-header names
+   - Models `Access-Control-Max-Age` for a second matching request, while explicitly treating the timeline as educational rather than observed browser state
+   - Creates versioned share fragments from an allowlisted schema and restores the evaluated result
    - Renders visual flow diagram showing decision steps
 
 4. **Live Fetch Lab** (`js/live-fetch.js`)
@@ -92,6 +95,8 @@ The application is organized into four tabs, providing a progressive learning pa
 - Theme toggle (light/dark mode) with localStorage persistence (key: `'corspg-theme'`)
 - Accordion toggle for collapsible content sections
 - Help panel toggle for contextual explanations
+- Language switching temporarily preserves the selected tab, disclosure state, and safe simulator scenario in sessionStorage
+- Live Fetch values, bodies, logs, and postMessage values are never included in shared or language-switch state
 
 ### CORS Validation Logic
 
@@ -200,6 +205,13 @@ function needsPreflight(method, headers) {
     || unsafeRequestHeaderNames(headers).length > 0;
 }
 ```
+
+### Response Header Exposure and Shared State
+
+- `responseHeaderExposure()` applies the response-header safelist, ACEH, the credentials wildcard rule, and the forbidden `Set-Cookie` / `Set-Cookie2` names.
+- `modelPreflightCache()` shows a two-request educational timeline. It does not claim to observe a browser's cache.
+- `encodeScenario()` and `decodeScenario()` use a versioned, length-limited, allowlisted fragment schema.
+- Language-switch state uses the same normalized simulator schema and is consumed from sessionStorage after navigation.
 
 ### Error Handling in Live Fetch
 

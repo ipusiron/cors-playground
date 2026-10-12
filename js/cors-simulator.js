@@ -125,6 +125,47 @@ function parseHeaderList(str){
  */
 function norm(name){ return (name||'').toLowerCase(); }
 
+function boundedInteger(id, fallback){
+  const input = Q(id);
+  const value = Number(input.value);
+  const min = Number(input.min || 0);
+  const max = Number(input.max || 86400);
+  return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+}
+
+function collectScenario(){
+  return CorsCore.normalizeScenario({
+    method: Q('simMethod').value,
+    contentType: Q('simContentType').value,
+    requestHeaders: Q('simHeaders').value,
+    credentials: Q('simCred').checked,
+    acao: Q('simACAO').value,
+    acac: Q('simACAC').value,
+    acam: Q('simACAM').value,
+    acah: Q('simACAH').value,
+    aceh: Q('simACEH').value,
+    responseHeaders: Q('simResponseHeaders').value,
+    maxAge: boundedInteger('simMaxAge', 5),
+    secondRequestAfter: boundedInteger('simSecondAfter', 0),
+  });
+}
+
+function applyScenario(scenario){
+  const safe = CorsCore.normalizeScenario(scenario);
+  Q('simMethod').value = safe.method;
+  Q('simContentType').value = safe.contentType;
+  Q('simHeaders').value = safe.requestHeaders;
+  Q('simCred').checked = safe.credentials;
+  Q('simACAO').value = safe.acao;
+  Q('simACAC').value = safe.acac;
+  Q('simACAM').value = safe.acam;
+  Q('simACAH').value = safe.acah;
+  Q('simACEH').value = safe.aceh;
+  Q('simResponseHeaders').value = safe.responseHeaders;
+  Q('simMaxAge').value = String(safe.maxAge);
+  Q('simSecondAfter').value = String(safe.secondRequestAfter);
+}
+
 // ========================================
 // コアアルゴリズム
 // ========================================
@@ -360,6 +401,63 @@ function renderFlow({simple, preflight, decisionOk, notes}){
   exp.textContent = notes.join('\n'); // 改行で結合
 }
 
+function appendHeaderResult(container, heading, entries, className){
+  const group = document.createElement('div');
+  group.className = `header-result-group ${className || ''}`.trim();
+  const title = document.createElement('strong');
+  title.textContent = heading;
+  const text = document.createElement('p');
+  text.textContent = entries.length ? entries.map((entry)=>entry.name || entry).join(', ') : simText('exposeNone');
+  group.append(title, text);
+  container.appendChild(group);
+}
+
+function renderAdvanced(preflight, credentials){
+  const exposure = CorsCore.responseHeaderExposure({
+    credentials,
+    responseHeaders: Q('simResponseHeaders').value,
+    exposeHeaders: Q('simACEH').value,
+  });
+  const exposureOutput = Q('simExposeResult');
+  exposureOutput.replaceChildren();
+  appendHeaderResult(exposureOutput, simText('exposeReadable'), exposure.readable, 'readable');
+  appendHeaderResult(exposureOutput, simText('exposeUnreadable'), exposure.unreadable, 'unreadable');
+  if(exposure.invalidResponseHeaders.length){
+    appendHeaderResult(exposureOutput, simText('exposeInvalidResponse', {
+      headers: exposure.invalidResponseHeaders.join(', '),
+    }), [], 'error');
+  }
+  if(exposure.invalidExposeHeaders.length){
+    appendHeaderResult(exposureOutput, simText('exposeInvalidAceh', {
+      headers: exposure.invalidExposeHeaders.join(', '),
+    }), [], 'error');
+  }
+
+  const cache = CorsCore.modelPreflightCache({
+    preflightRequired: preflight,
+    maxAge: Q('simMaxAge').value,
+    secondRequestAfter: Number(Q('simSecondAfter').value),
+    sameRequest: Q('simSameRequest').checked,
+  });
+  const timeline = Q('simCacheTimeline');
+  timeline.replaceChildren();
+  const keys = {
+    preflightStored: 'cacheFirstStored',
+    notRequired: 'cacheNotRequired',
+    cacheHit: 'cacheHit',
+    expired: 'cacheExpired',
+    conditionsChanged: 'cacheChanged',
+  };
+  cache.events.forEach((event, index)=>{
+    const item = document.createElement('li');
+    item.dataset.step = String(index + 1);
+    item.textContent = simText(keys[event.reason], {
+      seconds: event.reason === 'preflightStored' ? cache.maxAge : event.at,
+    });
+    timeline.appendChild(item);
+  });
+}
+
 // ========================================
 // メイン処理
 // ========================================
@@ -431,6 +529,7 @@ function doSimulate(){
 
   // ===== UIレンダリング =====
   renderFlow({simple, preflight, decisionOk, notes});
+  renderAdvanced(preflight, cred);
 }
 
 // ========================================
@@ -439,6 +538,35 @@ function doSimulate(){
 
 // 「判定する」ボタン
 Q('btnSimulate').addEventListener('click', doSimulate);
+
+Q('btnSimShare').addEventListener('click', async ()=>{
+  const status = Q('simShareStatus');
+  try {
+    const url = new URL(location.href);
+    url.hash = CorsCore.encodeScenario(collectScenario());
+    await navigator.clipboard.writeText(url.href);
+    history.replaceState(null, '', url.href);
+    status.textContent = simText('shareCopied');
+  } catch(error) {
+    status.textContent = simText('shareCopyFailed');
+  }
+});
+
+Q('btnSimClearShare').addEventListener('click', ()=>{
+  const url = new URL(location.href);
+  url.hash = '';
+  history.replaceState(null, '', url.href);
+  Q('simShareStatus').textContent = simText('shareCleared');
+});
+
+[
+  'simMethod', 'simContentType', 'simHeaders', 'simCred', 'simACAO', 'simACAC',
+  'simACAM', 'simACAH', 'simACEH', 'simResponseHeaders', 'simMaxAge',
+  'simSecondAfter', 'simSameRequest',
+].forEach((id)=>{
+  Q(id).addEventListener('input', doSimulate);
+  Q(id).addEventListener('change', doSimulate);
+});
 
 // ========== プリセットボタン ==========
 
@@ -460,6 +588,9 @@ Q('btnSimPresetSimple').addEventListener('click', ()=>{
   Q('simACAC').value = '';
   Q('simACAM').value = 'GET, POST';
   Q('simACAH').value = '';
+  Q('simACEH').value = '';
+  Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  doSimulate();
 });
 
 /**
@@ -480,6 +611,9 @@ Q('btnSimPresetJSON').addEventListener('click', ()=>{
   Q('simACAC').value = '';
   Q('simACAM').value = 'GET, POST, PUT';
   Q('simACAH').value = 'content-type';
+  Q('simACEH').value = 'X-Trace-Id';
+  Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id';
+  doSimulate();
 });
 
 /**
@@ -500,4 +634,27 @@ Q('btnSimPresetAuth').addEventListener('click', ()=>{
   Q('simACAC').value = 'true';
   Q('simACAM').value = 'GET, POST';
   Q('simACAH').value = 'authorization';
+  Q('simACEH').value = '*';
+  Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  doSimulate();
 });
+
+globalThis.CorsSimulatorState = { collectScenario, applyScenario, doSimulate };
+
+const pendingScenario = globalThis.CorsPendingSessionState && globalThis.CorsPendingSessionState.scenario;
+if(pendingScenario){
+  try { applyScenario(pendingScenario); } catch(error) { /* ignore invalid session data */ }
+}
+
+if(location.hash.startsWith('#cors=')){
+  try {
+    applyScenario(CorsCore.decodeScenario(location.hash));
+    const simulatorTab = document.querySelector('[data-tab="tab-simulator"]');
+    if(simulatorTab) simulatorTab.click();
+    Q('simShareStatus').textContent = simText('shareLoaded');
+  } catch(error) {
+    Q('simShareStatus').textContent = simText('shareInvalid');
+  }
+}
+
+doSimulate();

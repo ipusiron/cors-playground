@@ -10,6 +10,32 @@
   const LANGUAGE_VALUE = /^[0-9A-Za-z *,\-.;=]*$/;
   const SINGLE_RANGE_VALUE = /^bytes=[0-9]+-[0-9]*$/;
   const CORS_UNSAFE_VALUE = /[\u0000-\u0008\u000A-\u001F\u007F()<>?@\[\]{}:"]/;
+  const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+  const SAFE_RESPONSE_HEADERS = new Set([
+    'cache-control',
+    'content-language',
+    'content-length',
+    'content-type',
+    'expires',
+    'last-modified',
+    'pragma',
+  ]);
+  const FORBIDDEN_RESPONSE_HEADERS = new Set(['set-cookie', 'set-cookie2']);
+  const SHARE_PREFIX = 'cors=v1.';
+  const SHARE_FIELDS = Object.freeze({
+    method: { key: 'm', type: 'enum', values: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] },
+    contentType: { key: 'ct', type: 'enum', values: ['', 'text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data', 'application/json', 'application/xml'] },
+    requestHeaders: { key: 'rh', type: 'string', max: 512 },
+    credentials: { key: 'cr', type: 'boolean' },
+    acao: { key: 'ao', type: 'string', max: 256 },
+    acac: { key: 'ac', type: 'enum', values: ['', 'true', 'false'] },
+    acam: { key: 'am', type: 'string', max: 512 },
+    acah: { key: 'ah', type: 'string', max: 512 },
+    aceh: { key: 'eh', type: 'string', max: 512 },
+    responseHeaders: { key: 'sh', type: 'string', max: 512 },
+    maxAge: { key: 'ma', type: 'integer', min: 0, max: 86400 },
+    secondRequestAfter: { key: 'sd', type: 'integer', min: 0, max: 86400 },
+  });
 
   function normalizeName(name) {
     return String(name || '').trim().toLowerCase();
@@ -80,6 +106,156 @@
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  function parseHeaderNameList(value) {
+    const names = [];
+    const invalid = [];
+    const seen = new Set();
+    parseList(value).forEach((name) => {
+      const normalized = normalizeName(name);
+      if (!HEADER_NAME.test(name)) {
+        invalid.push(name);
+      } else if (!seen.has(normalized)) {
+        seen.add(normalized);
+        names.push(name);
+      }
+    });
+    return { names, invalid };
+  }
+
+  function responseHeaderExposure(config) {
+    const credentials = Boolean(config && config.credentials);
+    const responseParsed = parseHeaderNameList(config && config.responseHeaders);
+    const exposeParsed = parseHeaderNameList(config && config.exposeHeaders);
+    const exposed = exposeParsed.invalid.length
+      ? new Set()
+      : new Set(exposeParsed.names.map(normalizeName));
+    const wildcard = !credentials && exposed.has('*');
+    const readable = [];
+    const unreadable = [];
+
+    responseParsed.names.forEach((name) => {
+      const normalized = normalizeName(name);
+      if (FORBIDDEN_RESPONSE_HEADERS.has(normalized)) {
+        unreadable.push({ name, reason: 'forbidden' });
+      } else if (SAFE_RESPONSE_HEADERS.has(normalized)) {
+        readable.push({ name, reason: 'safelisted' });
+      } else if (wildcard || exposed.has(normalized)) {
+        readable.push({ name, reason: wildcard ? 'wildcard' : 'explicit' });
+      } else {
+        unreadable.push({ name, reason: credentials && exposed.has('*') ? 'credentialWildcardLiteral' : 'notExposed' });
+      }
+    });
+
+    return {
+      readable,
+      unreadable,
+      invalidResponseHeaders: responseParsed.invalid,
+      invalidExposeHeaders: exposeParsed.invalid,
+      wildcard,
+    };
+  }
+
+  function clampInteger(value, fallback, min, max) {
+    const number = Number(value);
+    if (!Number.isInteger(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function modelPreflightCache(config) {
+    const preflightRequired = Boolean(config && config.preflightRequired);
+    const maxAgeDefaulted = config == null || config.maxAge === '' || config.maxAge == null;
+    const maxAge = clampInteger(maxAgeDefaulted ? 5 : config.maxAge, 5, 0, 86400);
+    const secondRequestAfter = clampInteger(config && config.secondRequestAfter, 0, 0, 86400);
+    const sameRequest = config == null || config.sameRequest !== false;
+    const reused = preflightRequired && sameRequest && maxAge > 0 && secondRequestAfter < maxAge;
+    const secondReason = !preflightRequired
+      ? 'notRequired'
+      : (!sameRequest ? 'conditionsChanged' : (reused ? 'cacheHit' : 'expired'));
+    return {
+      maxAge,
+      maxAgeDefaulted,
+      secondRequestAfter,
+      reused,
+      events: [
+        { at: 0, reason: preflightRequired ? 'preflightStored' : 'notRequired' },
+        { at: secondRequestAfter, reason: secondReason },
+      ],
+    };
+  }
+
+  function normalizeScenario(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      throw new TypeError('invalidScenario');
+    }
+    const output = {};
+    for (const [name, rule] of Object.entries(SHARE_FIELDS)) {
+      const value = input[name];
+      if (value === undefined) throw new TypeError(`missing:${name}`);
+      if (rule.type === 'boolean') {
+        if (typeof value !== 'boolean') throw new TypeError(`invalid:${name}`);
+        output[name] = value;
+      } else if (rule.type === 'integer') {
+        if (!Number.isInteger(value) || value < rule.min || value > rule.max) throw new TypeError(`invalid:${name}`);
+        output[name] = value;
+      } else {
+        if (typeof value !== 'string' || value.length > (rule.max || 256) || /[\u0000-\u001F\u007F]/.test(value)) {
+          throw new TypeError(`invalid:${name}`);
+        }
+        if (rule.type === 'enum' && !rule.values.includes(value)) throw new TypeError(`invalid:${name}`);
+        output[name] = value;
+      }
+    }
+    return output;
+  }
+
+  function bytesToBase64Url(bytes) {
+    let base64;
+    if (typeof Buffer !== 'undefined') {
+      base64 = Buffer.from(bytes).toString('base64');
+    } else {
+      let binary = '';
+      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+      base64 = btoa(binary);
+    }
+    return base64.replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
+  }
+
+  function base64UrlToBytes(value) {
+    if (!/^[0-9A-Za-z_-]+$/.test(value) || value.length > 4096) throw new TypeError('invalidEncoding');
+    const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - value.length % 4) % 4);
+    if (typeof Buffer !== 'undefined') return Uint8Array.from(Buffer.from(padded, 'base64'));
+    const binary = atob(padded);
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  }
+
+  function encodeScenario(input) {
+    const scenario = normalizeScenario(input);
+    const compact = {};
+    Object.entries(SHARE_FIELDS).forEach(([name, rule]) => { compact[rule.key] = scenario[name]; });
+    const bytes = new TextEncoder().encode(JSON.stringify(compact));
+    const fragment = SHARE_PREFIX + bytesToBase64Url(bytes);
+    if (fragment.length > 4096) throw new TypeError('scenarioTooLarge');
+    return fragment;
+  }
+
+  function decodeScenario(fragment) {
+    const raw = String(fragment || '').replace(/^#/u, '');
+    if (!raw.startsWith(SHARE_PREFIX) || raw.length > 4096) throw new TypeError('invalidFragment');
+    const bytes = base64UrlToBytes(raw.slice(SHARE_PREFIX.length));
+    let compact;
+    try {
+      compact = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+    } catch (error) {
+      throw new TypeError('invalidPayload');
+    }
+    if (!compact || typeof compact !== 'object' || Array.isArray(compact)) throw new TypeError('invalidPayload');
+    const allowedKeys = new Set(Object.values(SHARE_FIELDS).map((rule) => rule.key));
+    if (Object.keys(compact).some((key) => !allowedKeys.has(key))) throw new TypeError('unknownField');
+    const expanded = {};
+    Object.entries(SHARE_FIELDS).forEach(([name, rule]) => { expanded[name] = compact[rule.key]; });
+    return normalizeScenario(expanded);
   }
 
   function finalDecision(config) {
@@ -189,12 +365,19 @@
   const api = {
     SAFE_METHODS,
     SAFE_CONTENT_TYPES,
+    SAFE_RESPONSE_HEADERS,
+    decodeScenario,
+    encodeScenario,
     finalDecision,
     inspectTarget,
     isSafelistedHeader,
     mimeEssence,
     needsPreflight,
+    modelPreflightCache,
+    normalizeScenario,
     parseHeaderLines,
+    parseHeaderNameList,
+    responseHeaderExposure,
     unsafeRequestHeaderNames,
   };
 

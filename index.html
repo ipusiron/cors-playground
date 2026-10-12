@@ -1473,6 +1473,12 @@
         </div>
       </div>
 
+      <div class="share-actions" aria-label="シミュレーター条件の共有">
+        <button id="btnSimShare" class="btn">共有リンクをコピー</button>
+        <button id="btnSimClearShare" class="btn ghost">共有条件をURLから消す</button>
+        <span id="simShareStatus" class="share-status" role="status" aria-live="polite"></span>
+      </div>
+
       <div class="panel-grid">
         <div class="card">
           <h2>入力（クライアント側の意図）</h2>
@@ -1543,6 +1549,10 @@
               <label class="label">Access-Control-Allow-Headers（ACAH）</label>
               <input id="simACAH" type="text" placeholder="例）Authorization, Content-Type" />
             </div>
+            <div class="full">
+              <label class="label" for="simACEH">Access-Control-Expose-Headers（ACEH）</label>
+              <input id="simACEH" type="text" placeholder="例）X-Trace-Id または *" />
+            </div>
           </div>
         </div>
 
@@ -1553,6 +1563,39 @@
             <div class="log-head">解説</div>
             <pre id="simExplain" class="pre" aria-live="polite" aria-atomic="true"></pre>
           </div>
+        </div>
+
+        <div class="card">
+          <h2>JavaScriptから読めるレスポンスヘッダー</h2>
+          <p class="muted">レスポンスに含まれるヘッダー名を入力し、ACEHと資格情報の条件から公開範囲を確認します。</p>
+          <div class="form-grid">
+            <div class="full">
+              <label class="label" for="simResponseHeaders">レスポンスに含まれるヘッダー名（カンマ区切り）</label>
+              <input id="simResponseHeaders" type="text" value="Content-Type, X-Trace-Id, Set-Cookie" />
+            </div>
+          </div>
+          <div id="simExposeResult" class="advanced-result" aria-live="polite" aria-atomic="true"></div>
+          <p class="muted small">Set-CookieとSet-Cookie2は公開できません。資格情報付きではACEHの * はワイルドカードになりません。</p>
+        </div>
+
+        <div class="card">
+          <h2>プリフライトキャッシュの時間軸モデル</h2>
+          <p class="muted">同一のオリジン・URL・資格情報・メソッド・ヘッダー条件が続くと仮定した学習用モデルです。</p>
+          <div class="form-grid">
+            <div>
+              <label class="label" for="simMaxAge">Access-Control-Max-Age（秒）</label>
+              <input id="simMaxAge" type="number" min="0" max="86400" step="1" value="600" />
+            </div>
+            <div>
+              <label class="label" for="simSecondAfter">2回目の要求まで（秒）</label>
+              <input id="simSecondAfter" type="number" min="0" max="86400" step="1" value="30" />
+            </div>
+            <div class="full">
+              <label class="checkbox"><input id="simSameRequest" type="checkbox" checked /> 2回目もキャッシュ照合条件が同じ</label>
+            </div>
+          </div>
+          <ol id="simCacheTimeline" class="timeline" aria-live="polite" aria-atomic="true"></ol>
+          <p class="muted small">これはブラウザーの実測ではありません。実際のキャッシュ上限や早期削除は実装により異なり、OPTIONSの有無はDevToolsのNetworkで確認します。</p>
         </div>
       </div>
     </section>

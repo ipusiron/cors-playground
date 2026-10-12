@@ -40,6 +40,42 @@ test('simulator uses core results rather than DOM rereads in final decision', ()
   assert.match(source, /CorsCore\.finalDecision/);
   const functionBody = source.slice(source.indexOf('function finalDecision'), source.indexOf('function formatCoreNote'));
   assert.doesNotMatch(functionBody, /Q\('simHeaders'\)/);
+  assert.match(source, /CorsCore\.responseHeaderExposure/);
+  assert.match(source, /CorsCore\.modelPreflightCache/);
+  assert.doesNotMatch(source, /innerHTML/);
+});
+
+test('all simulator input mutations rerender derived results', () => {
+  const source = read('js/cors-simulator.js');
+  for (const id of ['simMethod', 'simHeaders', 'simCred', 'simACEH', 'simResponseHeaders', 'simMaxAge', 'simSecondAfter']) {
+    assert.match(source, new RegExp(`'${id}'`));
+  }
+  assert.match(source, /addEventListener\('input', doSimulate\)/);
+  assert.match(source, /addEventListener\('change', doSimulate\)/);
+});
+
+test('shared scenarios restore and evaluate while excluding live-fetch data', () => {
+  const source = read('js/cors-simulator.js');
+  assert.match(source, /CorsCore\.encodeScenario\(collectScenario\(\)\)/);
+  assert.match(source, /applyScenario\(CorsCore\.decodeScenario\(location\.hash\)\)/);
+  assert.match(source, /simulatorTab\.click\(\)/);
+  assert.match(source, /doSimulate\(\);\s*$/);
+  const collector = source.slice(source.indexOf('function collectScenario'), source.indexOf('function applyScenario'));
+  for (const forbidden of ['liveUrl', 'liveHeaders', 'liveBody', 'liveLog', 'pmMessage', 'pmLog']) {
+    assert.doesNotMatch(collector, new RegExp(forbidden));
+  }
+});
+
+test('language switching stores only safe session state and restores UI selection', () => {
+  const source = read('js/app.js');
+  assert.match(source, /sessionStorage\.setItem\(SESSION_STATE_KEY/);
+  assert.match(source, /CorsSimulatorState\.collectScenario\(\)/);
+  assert.match(source, /activeTab/);
+  assert.match(source, /openAccordions/);
+  assert.match(source, /target\.hash = location\.hash/);
+  for (const forbidden of ['liveUrl', 'liveHeaders', 'liveBody', 'liveLog', 'pmMessage', 'pmLog']) {
+    assert.doesNotMatch(source, new RegExp(forbidden));
+  }
 });
 
 test('CSP and metadata do not claim unsupported header behavior', () => {
@@ -54,7 +90,7 @@ test('interactive disclosure and dynamic results expose accessible state', () =>
   const html = read('index.html');
   assert.equal((html.match(/data-accordion-target=/g) || []).length, 7);
   assert.equal((html.match(/data-help-target=/g) || []).length, 2);
-  assert.equal((html.match(/aria-live="polite"/g) || []).length, 4);
+  assert.equal((html.match(/aria-live="polite"/g) || []).length, 7);
   assert.doesNotMatch(read('js/sop-lab.js'), /innerHTML/);
   assert.match(read('js/app.js'), /aria-expanded/);
 });
@@ -94,6 +130,8 @@ test('English page has all functional controls and bilingual scripts', () => {
     'themeToggle', 'frameSafe', 'frameSandboxed', 'btnReadSafe', 'btnReadSandboxed',
     'btnPostMessage', 'pmLog', 'btnSimulate', 'simMethod', 'simContentType',
     'simHeaders', 'simCred', 'simACAO', 'simACAC', 'simACAM', 'simACAH',
+    'simACEH', 'simResponseHeaders', 'simExposeResult', 'simMaxAge', 'simSecondAfter',
+    'simSameRequest', 'simCacheTimeline', 'btnSimShare', 'btnSimClearShare', 'simShareStatus',
     'simFlow', 'simExplain', 'btnLiveGo', 'liveUrl', 'liveMethod', 'liveCT',
     'liveCred', 'liveHeaders', 'liveBody', 'liveLog',
   ];
@@ -102,6 +140,16 @@ test('English page has all functional controls and bilingual scripts', () => {
   assert.match(read('js/messages.js'), /en:\s*\{/);
   assert.match(read('js/language-init.js'), /navigator\.language/);
   assert.match(read('js/language-init.js'), /explicitDocument/);
+});
+
+test('both language pages expose the response-header and preflight-cache learning panels', () => {
+  for (const file of ['index.html', 'index.en.html']) {
+    const html = read(file);
+    for (const id of ['simACEH', 'simResponseHeaders', 'simExposeResult', 'simMaxAge', 'simSecondAfter', 'simSameRequest', 'simCacheTimeline']) {
+      assert.match(html, new RegExp(`id="${id}"`));
+    }
+    assert.match(html, /This is not a browser measurement|これはブラウザーの実測ではありません/);
+  }
 });
 
 test('English static UI has no Japanese outside the language link', () => {

@@ -25,7 +25,7 @@ At the root URL, the initial language follows `?lang=ja|en`, a saved choice, and
 ## 📸 Screenshots
 
 >![CORS decision simulator](assets/en/screenshot.png)
->*A preflight estimate and final decision with reasons*
+>*A reasoned preflight decision and ACEH response-header exposure result*
 >
 >![CSP destination restriction](assets/en/screenshot2.png)
 >*A CSP block identified before it can be mistaken for CORS*
@@ -71,6 +71,11 @@ The simulator is an educational model, not a scanner or proof of server-side beh
 - Evaluates method, complete request-header values, credentials, and simulated response headers.
 - Supports `Range`, the 128-byte per-value rule, the 1,024-byte combined safelist rule, and wildcard behavior for ACAM and ACAH.
 - Treats `Authorization` as a non-wildcard request-header name.
+- Separates response headers readable by JavaScript using the response-header safelist and ACEH, including the credentials wildcard rule.
+  - `Set-Cookie` and `Set-Cookie2` remain forbidden even when listed in ACEH.
+- Models a second request against `Access-Control-Max-Age` on a timeline; this is not a browser measurement.
+- Creates versioned fragment share links from safe simulator conditions and automatically restores the same result.
+- Keeps only safe simulator inputs, the selected tab, and disclosure state in same-tab `sessionStorage` during a language switch.
 
 ### 4. **Live Fetch Lab**
 
@@ -89,6 +94,8 @@ The simulator is an educational model, not a scanner or proof of server-side beh
 | Authorization | Explicit ACAH permission is required; `ACAH: *` does not match Authorization |
 | Credentialed request | Exact ACAO and case-sensitive `ACAC: true` are required |
 | CSP-restricted URL | The request is stopped before CORS is evaluated |
+| ACEH wildcard | Compare readable response headers with and without credentials |
+| Preflight cache | Compare a second request before expiry, at expiry, and after match conditions change |
 
 ---
 
@@ -159,6 +166,7 @@ A credentialed CORS request cannot use `Access-Control-Allow-Origin: *`. It requ
 - The iframe documents also use CSP: the same-origin frame loads an external handler, while the sandbox runs only a fixed hash-authorized handler.
 - Dynamic output uses `textContent`, DOM creation, and `replaceChildren()`.
 - URL validation accepts only HTTP(S), then checks the origin against the CSP allowlist.
+- Shared fragments validate the version, total length, allowed keys, types, enums, string lengths, and numeric ranges.
 - The referrer policy is `strict-origin-when-cross-origin`.
 
 `X-Content-Type-Options`, `Permissions-Policy`, and `X-Frame-Options` are HTTP response headers. They are not implemented through ineffective meta elements. Likewise, `frame-ancestors` is ignored in a meta-delivered CSP.
@@ -166,10 +174,13 @@ A credentialed CORS request cannot use `Access-Control-Allow-Origin: *`. It requ
 ### Usage limits
 
 - Live requests are sent only after the user presses Run.
-- This tool does not collect or persist experiment data.
+- This tool does not send inputs to an operator-controlled collection service.
+- Theme and language are stored in `localStorage`. During a language switch, safe simulator conditions, the selected tab, and disclosure state are stored temporarily in `sessionStorage` and removed when restored.
+- A share link contains simulator conditions in its URL fragment. Live Fetch URLs, additional header values, bodies, and logs, as well as postMessage inputs and logs, are excluded from both sharing and language-switch storage.
 - It cannot prove that an actual request reached a server.
 - It cannot distinguish CORS, DNS, TLS, offline, and other network failures from a Fetch API `TypeError` alone.
 - It does not audit authentication, authorization, or the security of a production server.
+- The preflight cache timeline cannot prove an implementation's cap, early eviction, or actual omission of OPTIONS.
 
 Use DevTools and server-side evidence, and test only systems you are authorized to access.
 
