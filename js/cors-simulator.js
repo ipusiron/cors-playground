@@ -360,6 +360,63 @@ function renderFlow({simple, preflight, decisionOk, notes}){
   exp.textContent = notes.join('\n'); // 改行で結合
 }
 
+function appendHeaderResult(container, heading, entries, className){
+  const group = document.createElement('div');
+  group.className = `header-result-group ${className || ''}`.trim();
+  const title = document.createElement('strong');
+  title.textContent = heading;
+  const text = document.createElement('p');
+  text.textContent = entries.length ? entries.map((entry)=>entry.name || entry).join(', ') : simText('exposeNone');
+  group.append(title, text);
+  container.appendChild(group);
+}
+
+function renderAdvanced(preflight, credentials){
+  const exposure = CorsCore.responseHeaderExposure({
+    credentials,
+    responseHeaders: Q('simResponseHeaders').value,
+    exposeHeaders: Q('simACEH').value,
+  });
+  const exposureOutput = Q('simExposeResult');
+  exposureOutput.replaceChildren();
+  appendHeaderResult(exposureOutput, simText('exposeReadable'), exposure.readable, 'readable');
+  appendHeaderResult(exposureOutput, simText('exposeUnreadable'), exposure.unreadable, 'unreadable');
+  if(exposure.invalidResponseHeaders.length){
+    appendHeaderResult(exposureOutput, simText('exposeInvalidResponse', {
+      headers: exposure.invalidResponseHeaders.join(', '),
+    }), [], 'error');
+  }
+  if(exposure.invalidExposeHeaders.length){
+    appendHeaderResult(exposureOutput, simText('exposeInvalidAceh', {
+      headers: exposure.invalidExposeHeaders.join(', '),
+    }), [], 'error');
+  }
+
+  const cache = CorsCore.modelPreflightCache({
+    preflightRequired: preflight,
+    maxAge: Q('simMaxAge').value,
+    secondRequestAfter: Number(Q('simSecondAfter').value),
+    sameRequest: Q('simSameRequest').checked,
+  });
+  const timeline = Q('simCacheTimeline');
+  timeline.replaceChildren();
+  const keys = {
+    preflightStored: 'cacheFirstStored',
+    notRequired: 'cacheNotRequired',
+    cacheHit: 'cacheHit',
+    expired: 'cacheExpired',
+    conditionsChanged: 'cacheChanged',
+  };
+  cache.events.forEach((event, index)=>{
+    const item = document.createElement('li');
+    item.dataset.step = String(index + 1);
+    item.textContent = simText(keys[event.reason], {
+      seconds: event.reason === 'preflightStored' ? cache.maxAge : event.at,
+    });
+    timeline.appendChild(item);
+  });
+}
+
 // ========================================
 // メイン処理
 // ========================================
@@ -431,6 +488,7 @@ function doSimulate(){
 
   // ===== UIレンダリング =====
   renderFlow({simple, preflight, decisionOk, notes});
+  renderAdvanced(preflight, cred);
 }
 
 // ========================================
@@ -439,6 +497,15 @@ function doSimulate(){
 
 // 「判定する」ボタン
 Q('btnSimulate').addEventListener('click', doSimulate);
+
+[
+  'simMethod', 'simContentType', 'simHeaders', 'simCred', 'simACAO', 'simACAC',
+  'simACAM', 'simACAH', 'simACEH', 'simResponseHeaders', 'simMaxAge',
+  'simSecondAfter', 'simSameRequest',
+].forEach((id)=>{
+  Q(id).addEventListener('input', doSimulate);
+  Q(id).addEventListener('change', doSimulate);
+});
 
 // ========== プリセットボタン ==========
 
@@ -460,6 +527,9 @@ Q('btnSimPresetSimple').addEventListener('click', ()=>{
   Q('simACAC').value = '';
   Q('simACAM').value = 'GET, POST';
   Q('simACAH').value = '';
+  Q('simACEH').value = '';
+  Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  doSimulate();
 });
 
 /**
@@ -480,6 +550,9 @@ Q('btnSimPresetJSON').addEventListener('click', ()=>{
   Q('simACAC').value = '';
   Q('simACAM').value = 'GET, POST, PUT';
   Q('simACAH').value = 'content-type';
+  Q('simACEH').value = 'X-Trace-Id';
+  Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id';
+  doSimulate();
 });
 
 /**
@@ -500,4 +573,9 @@ Q('btnSimPresetAuth').addEventListener('click', ()=>{
   Q('simACAC').value = 'true';
   Q('simACAM').value = 'GET, POST';
   Q('simACAH').value = 'authorization';
+  Q('simACEH').value = '*';
+  Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  doSimulate();
 });
+
+doSimulate();

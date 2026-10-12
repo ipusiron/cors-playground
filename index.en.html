@@ -136,12 +136,33 @@
             <div><label class="label" for="simACAC">Access-Control-Allow-Credentials</label><select id="simACAC"><option value="">(none)</option><option>true</option><option>false</option></select></div>
             <div class="full"><label class="label" for="simACAM">Access-Control-Allow-Methods</label><input id="simACAM" type="text" placeholder="GET, POST, PUT" /></div>
             <div class="full"><label class="label" for="simACAH">Access-Control-Allow-Headers</label><input id="simACAH" type="text" placeholder="Authorization, Content-Type" /></div>
+            <div class="full"><label class="label" for="simACEH">Access-Control-Expose-Headers</label><input id="simACEH" type="text" placeholder="X-Trace-Id or *" /></div>
           </div>
         </article>
         <article class="card">
           <h2>Decision</h2>
           <div id="simFlow" class="flow" aria-live="polite"></div>
           <div class="log"><div class="log-head">Explanation</div><pre id="simExplain" class="pre" aria-live="polite" aria-atomic="true"></pre></div>
+        </article>
+        <article class="card">
+          <h2>Response headers readable by JavaScript</h2>
+          <p class="muted">Enter the response header names, then compare them with ACEH and the credentials mode.</p>
+          <div class="form-grid">
+            <div class="full"><label class="label" for="simResponseHeaders">Response header names, comma-separated</label><input id="simResponseHeaders" type="text" value="Content-Type, X-Trace-Id, Set-Cookie" /></div>
+          </div>
+          <div id="simExposeResult" class="advanced-result" aria-live="polite" aria-atomic="true"></div>
+          <p class="muted small">Set-Cookie and Set-Cookie2 are never exposed. With credentials, * in ACEH is not a wildcard.</p>
+        </article>
+        <article class="card">
+          <h2>Preflight cache timeline model</h2>
+          <p class="muted">This learning model assumes the same origin, URL, credentials, method, and header conditions.</p>
+          <div class="form-grid">
+            <div><label class="label" for="simMaxAge">Access-Control-Max-Age (seconds)</label><input id="simMaxAge" type="number" min="0" max="86400" step="1" value="600" /></div>
+            <div><label class="label" for="simSecondAfter">Seconds before request 2</label><input id="simSecondAfter" type="number" min="0" max="86400" step="1" value="30" /></div>
+            <div class="full"><label class="checkbox"><input id="simSameRequest" type="checkbox" checked /> Request 2 has the same cache-match conditions</label></div>
+          </div>
+          <ol id="simCacheTimeline" class="timeline" aria-live="polite" aria-atomic="true"></ol>
+          <p class="muted small">This is not a browser measurement. Implementations can impose caps or evict entries early. Confirm OPTIONS in DevTools Network.</p>
         </article>
       </div>
     </section>

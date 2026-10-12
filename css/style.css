@@ -236,6 +236,25 @@ iframe{
 .flow .warn{border-left-color:var(--warn)}
 .flow .ng{border-left-color:var(--error)}
 
+.advanced-result{display:grid; gap:8px; margin-top:12px}
+.header-result-group{
+  border-left:4px solid var(--success); border-radius:10px; background:var(--bg);
+  padding:10px 12px; overflow-wrap:anywhere;
+}
+.header-result-group.unreadable{border-left-color:var(--warn)}
+.header-result-group.error{border-left-color:var(--error)}
+.header-result-group strong{display:block; margin-bottom:4px}
+.header-result-group p{margin:0}
+.timeline{list-style:none; margin:12px 0 0; padding:0; display:grid; gap:8px}
+.timeline li{
+  position:relative; min-height:44px; padding:10px 12px 10px 42px;
+  border:1px solid var(--border); border-radius:10px; background:var(--bg);
+}
+.timeline li::before{
+  content:attr(data-step); position:absolute; left:10px; top:9px; display:grid; place-items:center;
+  width:24px; height:24px; border-radius:50%; background:var(--accent-weak); color:var(--fg); font-weight:700;
+}
+
 .log{margin-top:8px}
 .log-head{font-weight:700; margin-bottom:6px}
 .pre{
