@@ -31,66 +31,6 @@ const Q = (id)=>document.getElementById(id);
 const simText = CorsText.t;
 
 // ========================================
-// CORS 仕様定数
-// ========================================
-
-/**
- * セーフメソッド（Simple Request 条件の一部）
- *
- * @const {Set<string>}
- *
- * @spec
- * - Fetch Standard で定義されたセーフメソッド
- * - これ以外のメソッドはプリフライトが必要
- *
- * @performance
- * - Set を使用: O(1) の高速ルックアップ
- * - 配列の includes() よりも効率的
- */
-const SAFE_METHODS = new Set(['GET','HEAD','POST']);
-
-/**
- * セーフリストヘッダー
- *
- * @const {Set<string>}
- *
- * @spec
- * - Fetch仕様の「CORS-safelisted request-header」
- * - これらのヘッダーはプリフライトをトリガーしない
- * - 大文字小文字を区別しない（正規化して比較）
- *
- * @note
- * - 完全なリストではなく、代表的なものを含む
- * - 教育目的のため、主要なもののみ実装
- */
-const SAFE_HEADERS = new Set([
-  'accept',
-  'accept-language',
-  'content-language',
-  'content-type', // ただし特定の値のみセーフ（SAFE_CONTENT_TYPES参照）
-  'range'
-]);
-
-/**
- * セーフリスト Content-Type
- *
- * @const {Set<string>}
- *
- * @spec
- * - Content-Type ヘッダーの値がこれらの場合のみセーフ
- * - application/json は含まれない（プリフライトが必要）
- *
- * @educational_note
- * - 多くの開発者が見落とすポイント
- * - JSON通信ではほぼ確実にプリフライトが発生する
- */
-const SAFE_CONTENT_TYPES = new Set([
-  'text/plain',
-  'application/x-www-form-urlencoded',
-  'multipart/form-data'
-]);
-
-// ========================================
 // パーシング関数
 // ========================================
 
@@ -147,6 +87,13 @@ function collectScenario(){
     responseHeaders: Q('simResponseHeaders').value,
     maxAge: boundedInteger('simMaxAge', 5),
     secondRequestAfter: boundedInteger('simSecondAfter', 0),
+    dynamicOrigin: Q('simDynamicOrigin').checked,
+    responseCacheable: Q('simResponseCacheable').checked,
+    varyOrigin: Q('simVaryOrigin').checked,
+    siteRelation: Q('simSiteRelation').value,
+    cookieSameSite: Q('simCookieSameSite').value,
+    cookieSecure: Q('simCookieSecure').checked,
+    thirdPartyCookies: Q('simThirdPartyCookies').value,
   });
 }
 
@@ -164,190 +111,20 @@ function applyScenario(scenario){
   Q('simResponseHeaders').value = safe.responseHeaders;
   Q('simMaxAge').value = String(safe.maxAge);
   Q('simSecondAfter').value = String(safe.secondRequestAfter);
-}
-
-// ========================================
-// コアアルゴリズム
-// ========================================
-
-/**
- * シンプルリクエスト判定
- *
- * @param {string} method - HTTPメソッド
- * @param {string} contentType - Content-Type ヘッダーの値
- * @param {string[]} headers - カスタムヘッダー名の配列
- * @returns {boolean} - シンプルリクエストならtrue
- *
- * @algorithm
- * Simple Request の条件（すべて満たす必要あり）:
- * 1. メソッドが GET/HEAD/POST のいずれか
- * 2. Content-Type がセーフリストに含まれる（指定されている場合）
- * 3. すべてのカスタムヘッダーがセーフリストに含まれる
- *
- * @early_return
- * - 条件を満たさない場合は即座に false を返す
- * - パフォーマンス最適化と可読性向上
- *
- * @spec_reference
- * Fetch Standard § 5.3 CORS protocol
- */
-function isSimpleRequest(method, contentType, headers){
-  // 条件1: メソッドチェック
-  if(!SAFE_METHODS.has(method)) return false;
-
-  // 条件2: Content-Typeチェック（指定されている場合のみ）
-  if(contentType && !SAFE_CONTENT_TYPES.has(contentType)) return false;
-
-  // 条件3: カスタムヘッダーチェック
-  for(const h of headers){
-    if(!SAFE_HEADERS.has(norm(h))) return false;
-  }
-
-  return true; // すべての条件を満たす
+  Q('simDynamicOrigin').checked = safe.dynamicOrigin;
+  Q('simResponseCacheable').checked = safe.responseCacheable;
+  Q('simVaryOrigin').checked = safe.varyOrigin;
+  Q('simSiteRelation').value = safe.siteRelation;
+  Q('simCookieSameSite').value = safe.cookieSameSite;
+  Q('simCookieSecure').checked = safe.cookieSecure;
+  Q('simThirdPartyCookies').value = safe.thirdPartyCookies;
 }
 
 /**
- * プリフライト要否判定
- *
- * @param {string} method - HTTPメソッド
- * @param {string} contentType - Content-Type ヘッダーの値
- * @param {string[]} headers - カスタムヘッダー名の配列
- * @returns {boolean} - プリフライトが必要ならtrue
- *
- * @algorithm
- * - シンプルリクエストでない場合、プリフライトが必要
- * - 否定演算子により論理を反転
- *
- * @educational_note
- * - 「プリフライトが必要」≒「シンプルリクエストでない」
- * - 実装をシンプルに保つための設計判断
+ * 共通コアのメッセージキーを現在の言語へ変換する。
+ * @param {{key: string, values?: Object}} note
+ * @returns {string}
  */
-function needsPreflight(method, contentType, headers){
-  return !isSimpleRequest(method, contentType, headers);
-}
-
-/**
- * 最終可否判定（CORS ヘッダーチェック）
- *
- * @param {string} origin - リクエスト元のオリジン
- * @param {boolean} cred - withCredentials フラグ
- * @param {string} method - HTTPメソッド
- * @param {string[]} reqHeaders - リクエストヘッダー配列
- * @param {string} respACAO - Access-Control-Allow-Origin
- * @param {string} respACAC - Access-Control-Allow-Credentials
- * @param {string} respACAM - Access-Control-Allow-Methods
- * @param {string} respACAH - Access-Control-Allow-Headers
- * @returns {{ok: boolean, explain: string[]}} - 判定結果と理由
- *
- * @description
- * サーバーが返すCORSヘッダーから、ブラウザーがリクエストを許可するかを判定
- *
- * @algorithm
- * 1. ACAO (Access-Control-Allow-Origin) チェック
- *    - withCredentials=true の場合: ワイルドカード(*) 不可、オリジン完全一致必須
- *    - withCredentials=false の場合: * またはオリジン一致でOK
- *
- * 2. ACAC (Access-Control-Allow-Credentials) チェック
- *    - withCredentials=true の場合: ACAC: true 必須
- *
- * 3. ACAM (Access-Control-Allow-Methods) チェック
- *    - 非セーフメソッドの場合: メソッドが許可リストに含まれているか確認
- *
- * 4. ACAH (Access-Control-Allow-Headers) チェック
- *    - 非セーフヘッダーがある場合: すべて許可リストに含まれているか確認
- *
- * @returns
- * ok: 最終判定（true=ALLOW, false=BLOCK）
- * explain: 判定理由の配列（教育的フィードバック用）
- *
- * @educational_design
- * - 各チェックで詳細な理由を explain 配列に追加
- * - ユーザーが「なぜブロックされたのか」を理解できる
- */
-function finalDecision(origin, cred, method, reqHeaders, respACAO, respACAC, respACAM, respACAH){
-  const explain = [];
-  let ok = true;
-
-  // ========== ACAO チェック ==========
-  const allowAll = respACAO === '*';
-  const allowExact = respACAO === origin;
-
-  if(cred){
-    // withCredentials=true の場合の厳しい制約
-    if(allowAll){
-      ok = false;
-      explain.push('NG: withCredentials=true のとき ACAO:* は使用不可。具体的オリジンを返す必要。');
-    }else if(!allowExact){
-      ok = false;
-      explain.push(`NG: withCredentials=true のとき ACAO は発信元(${origin}) と一致が必要。今は "${respACAO||'(未指定)'}"`);
-    }else{
-      explain.push('OK: ACAO は発信元と一致。');
-    }
-  }else{
-    // withCredentials=false の場合
-    if(!(allowAll || allowExact)){
-      ok = false;
-      explain.push(`NG: ACAO が発信元(${origin}) を許可していない（今は "${respACAO||'(未指定)'}"）。`);
-    }else{
-      explain.push('OK: ACAO が発信元を許可。');
-    }
-  }
-
-  // ========== ACAC チェック ==========
-  if(cred){
-    if(respACAC !== 'true'){
-      ok = false;
-      explain.push('NG: withCredentials=true だが ACAC:true ではない。');
-    }else{
-      explain.push('OK: ACAC:true。');
-    }
-  }else{
-    if(respACAC === 'true'){
-      // 警告（エラーではない）
-      explain.push('注意: 資格情報なしだがサーバーは ACAC:true を返している（害はないが意味は薄い）。');
-    }
-  }
-
-  // ========== ACAM (メソッド) チェック ==========
-  const m = method.toUpperCase();
-  if(!SAFE_METHODS.has(m)){
-    // 非セーフメソッド: ACAM で許可されているか確認
-    const allowed = parseHeaderList(respACAM).map(x=>x.toUpperCase());
-    if(allowed.length === 0 || !(allowed.includes(m) || (!cred && allowed.includes('*')))){
-      ok = false;
-      explain.push(`NG: メソッド ${m} は ACAM で許可されていない。`);
-    }else{
-      explain.push(`OK: メソッド ${m} は ACAM で許可。`);
-    }
-  }
-
-  // ========== ACAH (ヘッダー) チェック ==========
-  // 非セーフヘッダーをフィルタリング
-  const nonSafeReqHeaders = reqHeaders
-    .map(norm)
-    .filter(h=>!SAFE_HEADERS.has(h));
-
-  if(nonSafeReqHeaders.length>0){
-    // 許可されたヘッダー（サーバーレスポンス）
-    const allowedH = parseHeaderList(respACAH).map(norm);
-
-    // 差分検出: リクエストヘッダーのうち、許可リストにないものを抽出
-    const missing = nonSafeReqHeaders.filter(h=>{
-      if(allowedH.includes(h)) return false;
-      return !(h !== 'authorization' && !cred && allowedH.includes('*'));
-    });
-
-    if(missing.length){
-      ok = false;
-      explain.push(`NG: 非セーフリストヘッダ [${missing.join(', ')}] が ACAH で許可されていない。`);
-    }else{
-      explain.push('OK: 非セーフヘッダは ACAH で許可されている。');
-    }
-  }
-
-  return {ok, explain};
-}
-
 function formatCoreNote(note){
   return simText(note.key, note.values);
 }
@@ -412,6 +189,49 @@ function appendHeaderResult(container, heading, entries, className){
   container.appendChild(group);
 }
 
+function renderExchange(config){
+  const exchange = CorsCore.buildCorsExchange(config);
+  const container = Q('simExchange');
+  const statusKeys = {
+    sent: 'exchangeSent', received: 'exchangeReceived', allowed: 'exchangeAllowed',
+    blocked: 'exchangeBlocked', notSent: 'exchangeNotSent',
+  };
+  const titleKeys = {
+    preflightRequest: 'exchangePreflightRequest', preflightResponse: 'exchangePreflightResponse',
+    actualRequest: 'exchangeActualRequest', actualResponse: 'exchangeActualResponse',
+    javascriptAccess: 'exchangeJavascriptAccess',
+  };
+  container.replaceChildren();
+  exchange.stages.forEach((stage, index)=>{
+    const item = document.createElement('li');
+    item.className = `exchange-step ${stage.status === 'notSent' ? 'not-sent' : stage.status}`;
+    const number = document.createElement('span');
+    number.className = 'exchange-step-number';
+    number.textContent = String(index + 1);
+    const body = document.createElement('div');
+    const heading = document.createElement('h3');
+    heading.textContent = simText(titleKeys[stage.key]);
+    const status = document.createElement('p');
+    status.className = 'exchange-step-status';
+    status.textContent = simText(statusKeys[stage.status]);
+    body.append(heading, status);
+    if(stage.lines.length){
+      const code = document.createElement('pre');
+      code.textContent = stage.lines.map((line)=>{
+        if(!line.name) return line.value;
+        return `${line.name}: ${line.value == null ? simText('exchangeValueNotModeled') : line.value}`;
+      }).join('\n');
+      body.appendChild(code);
+    }
+    item.append(number, body);
+    container.appendChild(item);
+  });
+  const outcomeKeys = {
+    readable: 'exchangeReadable', stoppedBeforeActual: 'exchangeStopped', unreadableAfterResponse: 'exchangeUnreadable',
+  };
+  Q('simExchangeOutcome').textContent = simText(outcomeKeys[exchange.outcome]);
+}
+
 function renderAdvanced(preflight, credentials){
   const exposure = CorsCore.responseHeaderExposure({
     credentials,
@@ -456,6 +276,69 @@ function renderAdvanced(preflight, credentials){
     });
     timeline.appendChild(item);
   });
+
+  const vary = CorsCore.assessVaryOrigin({
+    dynamicOrigin: Q('simDynamicOrigin').checked,
+    cacheable: Q('simResponseCacheable').checked,
+    varyOrigin: Q('simVaryOrigin').checked,
+  });
+  const varyKeys = {
+    notCacheable: 'varyNotCacheable', staticOrigin: 'varyStaticOrigin',
+    varyPresent: 'varyPresent', varyMissing: 'varyMissing',
+  };
+  const varyOutput = Q('simVaryResult');
+  varyOutput.replaceChildren();
+  appendHeaderResult(
+    varyOutput, simText('varyHeading'), [simText(varyKeys[vary.status])],
+    vary.status === 'varyMissing' ? 'error' : (vary.status === 'varyPresent' ? 'readable' : 'unreadable'),
+  );
+}
+
+function renderCredentialConditions(decisionOk){
+  const result = CorsCore.explainCredentialConditions({
+    credentials: Q('simCred').checked,
+    corsAllowed: decisionOk,
+    siteRelation: Q('simSiteRelation').value,
+    sameSite: Q('simCookieSameSite').value,
+    secure: Q('simCookieSecure').checked,
+    thirdPartyCookies: Q('simThirdPartyCookies').value,
+  });
+  const labelKeys = {
+    credentials: 'credentialLabelCredentials', cors: 'credentialLabelCors', siteRelation: 'credentialLabelSiteRelation',
+    sameSite: 'credentialLabelSameSite', secure: 'credentialLabelSecure', thirdPartyCookies: 'credentialLabelThirdPartyCookies',
+    otherCookieRules: 'credentialLabelOtherCookieRules',
+  };
+  const valueKeys = {
+    'credentials:requested': 'credentialCredentialsRequested', 'credentials:notRequested': 'credentialCredentialsNotRequested',
+    'cors:allowed': 'credentialCorsAllowed', 'cors:blocked': 'credentialCorsBlocked',
+    'siteRelation:unknown': 'credentialSiteRelationUnknown', 'siteRelation:sameSite': 'credentialSiteRelationSameSite', 'siteRelation:crossSite': 'credentialSiteRelationCrossSite',
+    'sameSite:unknown': 'credentialSameSiteUnknown', 'sameSite:lax': 'credentialSameSiteLax', 'sameSite:strict': 'credentialSameSiteStrict', 'sameSite:none': 'credentialSameSiteNone',
+    'secure:present': 'credentialSecurePresent', 'secure:absent': 'credentialSecureAbsent',
+    'thirdPartyCookies:unknown': 'credentialThirdPartyCookiesUnknown', 'thirdPartyCookies:allowed': 'credentialThirdPartyCookiesAllowed', 'thirdPartyCookies:blocked': 'credentialThirdPartyCookiesBlocked',
+    'otherCookieRules:unknown': 'credentialOtherCookieRulesUnknown',
+  };
+  const outcomeKeys = {
+    notRequested: 'credentialOutcomeNotRequested', blockedByCors: 'credentialOutcomeBlockedByCors',
+    blockedByCookieConfig: 'credentialOutcomeBlockedByCookieConfig', blockedBySameSite: 'credentialOutcomeBlockedBySameSite',
+    blockedByPolicy: 'credentialOutcomeBlockedByPolicy', needsMoreEvidence: 'credentialOutcomeNeedsMoreEvidence',
+  };
+  const output = Q('simCredentialResult');
+  output.replaceChildren();
+  result.conditions.forEach((condition)=>{
+    const item = document.createElement('div');
+    item.className = 'condition-item';
+    const label = document.createElement('strong');
+    label.textContent = simText(labelKeys[condition.key]);
+    const value = document.createElement('span');
+    value.textContent = simText(valueKeys[`${condition.key}:${condition.status}`]);
+    item.append(label, value);
+    output.appendChild(item);
+  });
+  const outcome = document.createElement('div');
+  const blocked = result.outcome.startsWith('blocked');
+  outcome.className = `condition-item condition-outcome ${blocked ? 'blocked' : 'warning'}`;
+  outcome.textContent = simText(outcomeKeys[result.outcome]);
+  output.appendChild(outcome);
 }
 
 // ========================================
@@ -529,7 +412,12 @@ function doSimulate(){
 
   // ===== UIレンダリング =====
   renderFlow({simple, preflight, decisionOk, notes});
+  renderExchange({
+    origin, credentials: cred, method, requestHeaders,
+    response: { acao: ACAO, acac: ACAC, acam: ACAM, acah: ACAH, aceh: Q('simACEH').value },
+  });
   renderAdvanced(preflight, cred);
+  renderCredentialConditions(decisionOk);
 }
 
 // ========================================
@@ -563,6 +451,8 @@ Q('btnSimClearShare').addEventListener('click', ()=>{
   'simMethod', 'simContentType', 'simHeaders', 'simCred', 'simACAO', 'simACAC',
   'simACAM', 'simACAH', 'simACEH', 'simResponseHeaders', 'simMaxAge',
   'simSecondAfter', 'simSameRequest',
+  'simDynamicOrigin', 'simResponseCacheable', 'simVaryOrigin', 'simSiteRelation',
+  'simCookieSameSite', 'simCookieSecure', 'simThirdPartyCookies',
 ].forEach((id)=>{
   Q(id).addEventListener('input', doSimulate);
   Q(id).addEventListener('change', doSimulate);
@@ -590,6 +480,13 @@ Q('btnSimPresetSimple').addEventListener('click', ()=>{
   Q('simACAH').value = '';
   Q('simACEH').value = '';
   Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  Q('simDynamicOrigin').checked = false;
+  Q('simResponseCacheable').checked = true;
+  Q('simVaryOrigin').checked = false;
+  Q('simSiteRelation').value = 'unknown';
+  Q('simCookieSameSite').value = 'unknown';
+  Q('simCookieSecure').checked = false;
+  Q('simThirdPartyCookies').value = 'unknown';
   doSimulate();
 });
 
@@ -613,6 +510,13 @@ Q('btnSimPresetJSON').addEventListener('click', ()=>{
   Q('simACAH').value = 'content-type';
   Q('simACEH').value = 'X-Trace-Id';
   Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id';
+  Q('simDynamicOrigin').checked = true;
+  Q('simResponseCacheable').checked = true;
+  Q('simVaryOrigin').checked = true;
+  Q('simSiteRelation').value = 'unknown';
+  Q('simCookieSameSite').value = 'unknown';
+  Q('simCookieSecure').checked = false;
+  Q('simThirdPartyCookies').value = 'unknown';
   doSimulate();
 });
 
@@ -636,6 +540,13 @@ Q('btnSimPresetAuth').addEventListener('click', ()=>{
   Q('simACAH').value = 'authorization';
   Q('simACEH').value = '*';
   Q('simResponseHeaders').value = 'Content-Type, X-Trace-Id, Set-Cookie';
+  Q('simDynamicOrigin').checked = true;
+  Q('simResponseCacheable').checked = true;
+  Q('simVaryOrigin').checked = true;
+  Q('simSiteRelation').value = 'crossSite';
+  Q('simCookieSameSite').value = 'none';
+  Q('simCookieSecure').checked = true;
+  Q('simThirdPartyCookies').value = 'allowed';
   doSimulate();
 });
 

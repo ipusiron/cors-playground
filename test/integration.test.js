@@ -38,8 +38,8 @@ test('simulator uses core results rather than DOM rereads in final decision', ()
   const source = read('js/cors-simulator.js');
   assert.match(source, /CorsCore\.needsPreflight/);
   assert.match(source, /CorsCore\.finalDecision/);
-  const functionBody = source.slice(source.indexOf('function finalDecision'), source.indexOf('function formatCoreNote'));
-  assert.doesNotMatch(functionBody, /Q\('simHeaders'\)/);
+  assert.doesNotMatch(source, /function\s+(?:isSimpleRequest|needsPreflight|finalDecision)\s*\(/u);
+  assert.doesNotMatch(source, /const\s+SAFE_(?:METHODS|HEADERS|CONTENT_TYPES)\b/u);
   assert.match(source, /CorsCore\.responseHeaderExposure/);
   assert.match(source, /CorsCore\.modelPreflightCache/);
   assert.doesNotMatch(source, /innerHTML/);
@@ -90,7 +90,10 @@ test('interactive disclosure and dynamic results expose accessible state', () =>
   const html = read('index.html');
   assert.equal((html.match(/data-accordion-target=/g) || []).length, 7);
   assert.equal((html.match(/data-help-target=/g) || []).length, 2);
-  assert.equal((html.match(/aria-live="polite"/g) || []).length, 7);
+  assert.equal((html.match(/aria-live="polite"/g) || []).length, 10);
+  assert.match(html, /id="simExchange"[^>]*aria-live="polite"/u);
+  assert.match(html, /id="simVaryResult"[^>]*aria-live="polite"/u);
+  assert.match(html, /id="simCredentialResult"[^>]*aria-live="polite"/u);
   assert.doesNotMatch(read('js/sop-lab.js'), /innerHTML/);
   assert.match(read('js/app.js'), /aria-expanded/);
 });

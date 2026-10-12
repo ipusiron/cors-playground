@@ -35,6 +35,13 @@
     responseHeaders: { key: 'sh', type: 'string', max: 512 },
     maxAge: { key: 'ma', type: 'integer', min: 0, max: 86400 },
     secondRequestAfter: { key: 'sd', type: 'integer', min: 0, max: 86400 },
+    dynamicOrigin: { key: 'do', type: 'boolean', default: false },
+    responseCacheable: { key: 'rc', type: 'boolean', default: true },
+    varyOrigin: { key: 'vo', type: 'boolean', default: false },
+    siteRelation: { key: 'sr', type: 'enum', values: ['unknown', 'sameSite', 'crossSite'], default: 'unknown' },
+    cookieSameSite: { key: 'cs', type: 'enum', values: ['unknown', 'lax', 'strict', 'none'], default: 'unknown' },
+    cookieSecure: { key: 'cu', type: 'boolean', default: false },
+    thirdPartyCookies: { key: 'tp', type: 'enum', values: ['unknown', 'allowed', 'blocked'], default: 'unknown' },
   });
 
   function normalizeName(name) {
@@ -185,13 +192,54 @@
     };
   }
 
+  function assessVaryOrigin(config) {
+    const dynamicOrigin = Boolean(config && config.dynamicOrigin);
+    const cacheable = config == null || config.cacheable !== false;
+    const varyOrigin = Boolean(config && config.varyOrigin);
+    let status;
+    if (!cacheable) status = 'notCacheable';
+    else if (!dynamicOrigin) status = 'staticOrigin';
+    else if (varyOrigin) status = 'varyPresent';
+    else status = 'varyMissing';
+    return { dynamicOrigin, cacheable, varyOrigin, status };
+  }
+
+  function explainCredentialConditions(config) {
+    const credentials = Boolean(config && config.credentials);
+    const corsAllowed = Boolean(config && config.corsAllowed);
+    const siteRelation = ['sameSite', 'crossSite'].includes(config && config.siteRelation)
+      ? config.siteRelation : 'unknown';
+    const sameSite = ['lax', 'strict', 'none'].includes(config && config.sameSite)
+      ? config.sameSite : 'unknown';
+    const secure = Boolean(config && config.secure);
+    const thirdPartyCookies = ['allowed', 'blocked'].includes(config && config.thirdPartyCookies)
+      ? config.thirdPartyCookies : 'unknown';
+    const conditions = [
+      { key: 'credentials', status: credentials ? 'requested' : 'notRequested' },
+      { key: 'cors', status: corsAllowed ? 'allowed' : 'blocked' },
+      { key: 'siteRelation', status: siteRelation },
+      { key: 'sameSite', status: sameSite },
+      { key: 'secure', status: secure ? 'present' : 'absent' },
+      { key: 'thirdPartyCookies', status: thirdPartyCookies },
+      { key: 'otherCookieRules', status: 'unknown' },
+    ];
+    let outcome = 'needsMoreEvidence';
+    if (!credentials) outcome = 'notRequested';
+    else if (!corsAllowed) outcome = 'blockedByCors';
+    else if (sameSite === 'none' && !secure) outcome = 'blockedByCookieConfig';
+    else if (siteRelation === 'crossSite' && (sameSite === 'lax' || sameSite === 'strict')) outcome = 'blockedBySameSite';
+    else if (thirdPartyCookies === 'blocked') outcome = 'blockedByPolicy';
+    return { conditions, outcome };
+  }
+
   function normalizeScenario(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
       throw new TypeError('invalidScenario');
     }
     const output = {};
     for (const [name, rule] of Object.entries(SHARE_FIELDS)) {
-      const value = input[name];
+      let value = input[name];
+      if (value === undefined && Object.hasOwn(rule, 'default')) value = rule.default;
       if (value === undefined) throw new TypeError(`missing:${name}`);
       if (rule.type === 'boolean') {
         if (typeof value !== 'boolean') throw new TypeError(`invalid:${name}`);
@@ -321,6 +369,73 @@
     return { ok, notes, preflight: needsPreflight(method, requestHeaders) };
   }
 
+  function responseCorsLines(response, statusLine) {
+    const headers = response || {};
+    const lines = [{ name: '', value: statusLine }];
+    [
+      ['Access-Control-Allow-Origin', 'acao'],
+      ['Access-Control-Allow-Credentials', 'acac'],
+      ['Access-Control-Allow-Methods', 'acam'],
+      ['Access-Control-Allow-Headers', 'acah'],
+      ['Access-Control-Expose-Headers', 'aceh'],
+    ].forEach(([name, key]) => {
+      const value = String(headers[key] || '').trim();
+      if (value) lines.push({ name, value });
+    });
+    return lines;
+  }
+
+  function buildCorsExchange(config) {
+    const origin = String(config && config.origin || 'https://client.example');
+    const method = String(config && config.method || 'GET').toUpperCase();
+    const requestHeaders = Array.isArray(config && config.requestHeaders) ? config.requestHeaders : [];
+    const response = config && config.response || {};
+    const credentials = Boolean(config && config.credentials);
+    const decision = finalDecision({ origin, method, requestHeaders, response, credentials });
+    const unsafeNames = unsafeRequestHeaderNames(requestHeaders);
+    const actualRequestLines = [
+      { name: '', value: `${method} /resource HTTP/1.1` },
+      { name: 'Origin', value: origin },
+      ...requestHeaders
+        .filter((entry) => normalizeName(entry && entry.name))
+        .map((entry) => ({
+          name: String(entry.name).trim(),
+          value: String(entry.value || '') || null,
+        })),
+    ];
+    const stages = [];
+
+    if (decision.preflight) {
+      const preflightLines = [
+        { name: '', value: 'OPTIONS /resource HTTP/1.1' },
+        { name: 'Origin', value: origin },
+        { name: 'Access-Control-Request-Method', value: method },
+      ];
+      if (unsafeNames.length) {
+        preflightLines.push({ name: 'Access-Control-Request-Headers', value: unsafeNames.join(', ') });
+      }
+      stages.push({ key: 'preflightRequest', status: 'sent', lines: preflightLines });
+      stages.push({
+        key: 'preflightResponse',
+        status: decision.ok ? 'allowed' : 'blocked',
+        lines: responseCorsLines(response, 'HTTP/1.1 204 No Content'),
+      });
+      if (!decision.ok) {
+        stages.push({ key: 'actualRequest', status: 'notSent', lines: actualRequestLines });
+        return { decision, stages, outcome: 'stoppedBeforeActual' };
+      }
+    }
+
+    stages.push({ key: 'actualRequest', status: 'sent', lines: actualRequestLines });
+    stages.push({
+      key: 'actualResponse',
+      status: 'received',
+      lines: responseCorsLines(response, 'HTTP/1.1 200 OK'),
+    });
+    stages.push({ key: 'javascriptAccess', status: decision.ok ? 'allowed' : 'blocked', lines: [] });
+    return { decision, stages, outcome: decision.ok ? 'readable' : 'unreadableAfterResponse' };
+  }
+
   function parseHeaderLines(text) {
     const headers = [];
     const errors = [];
@@ -366,8 +481,11 @@
     SAFE_METHODS,
     SAFE_CONTENT_TYPES,
     SAFE_RESPONSE_HEADERS,
+    assessVaryOrigin,
+    buildCorsExchange,
     decodeScenario,
     encodeScenario,
+    explainCredentialConditions,
     finalDecision,
     inspectTarget,
     isSafelistedHeader,

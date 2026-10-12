@@ -257,6 +257,42 @@ iframe{
   width:24px; height:24px; border-radius:50%; background:var(--accent-weak); color:var(--fg); font-weight:700;
 }
 
+.exchange-card{grid-column:1 / -1}
+.exchange-flow{list-style:none; margin:12px 0; padding:0; display:grid; gap:12px}
+.exchange-step{
+  display:grid; grid-template-columns:2rem minmax(0, 1fr); gap:10px;
+  border:1px solid var(--border); border-radius:12px; background:var(--bg); padding:12px;
+}
+.exchange-step-number{
+  display:grid; place-items:center; align-self:start; width:2rem; height:2rem;
+  border-radius:50%; background:var(--accent-weak); font-weight:700;
+}
+.exchange-step h3{margin:0 0 4px; font-size:1rem}
+.exchange-step-status{margin:0 0 8px; color:var(--muted); font-weight:600}
+.exchange-step pre{
+  margin:0; padding:10px; border-radius:8px; background:var(--pre-bg); color:var(--pre-fg);
+  white-space:pre-wrap; overflow-wrap:anywhere; font:0.8rem/1.5 Consolas, Monaco, monospace;
+}
+.exchange-step.blocked{border-left:4px solid var(--error)}
+.exchange-step.allowed{border-left:4px solid var(--success)}
+.exchange-step.not-sent{border-left:4px solid var(--warn)}
+.exchange-outcome{margin:0; padding:10px 12px; border-radius:10px; background:var(--accent-weak); font-weight:700}
+.condition-list{display:grid; gap:8px; margin-top:12px}
+.condition-item{
+  display:grid; grid-template-columns:minmax(8rem, .8fr) minmax(0, 1.2fr); gap:10px;
+  border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:10px 12px;
+}
+.condition-item strong,.condition-item span{overflow-wrap:anywhere}
+.condition-item.blocked{border-left:4px solid var(--error)}
+.condition-item.warning{border-left:4px solid var(--warn)}
+.condition-item.allowed{border-left:4px solid var(--success)}
+.condition-outcome{font-weight:700; background:var(--accent-weak)}
+@media (max-width:599px){
+  .exchange-step{grid-template-columns:1fr}
+  .exchange-step-number{width:1.75rem; height:1.75rem}
+  .condition-item{grid-template-columns:1fr}
+}
+
 .log{margin-top:8px}
 .log-head{font-weight:700; margin-bottom:6px}
 .pre{

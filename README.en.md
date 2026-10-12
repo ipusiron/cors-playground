@@ -25,7 +25,7 @@ At the root URL, the initial language follows `?lang=ja|en`, a saved choice, and
 ## 📸 Screenshots
 
 >![CORS decision simulator](assets/en/screenshot.png)
->*A reasoned preflight decision and ACEH response-header exposure result*
+>*HTTP response-cache Vary conditions and cookie transmission conditions shown separately from CORS permission*
 >
 >![CSP destination restriction](assets/en/screenshot2.png)
 >*A CSP block identified before it can be mistaken for CORS*
@@ -74,6 +74,9 @@ The simulator is an educational model, not a scanner or proof of server-side beh
 - Separates response headers readable by JavaScript using the response-header safelist and ACEH, including the credentials wildcard rule.
   - `Set-Cookie` and `Set-Cookie2` remain forbidden even when listed in ACEH.
 - Models a second request against `Access-Control-Max-Age` on a timeline; this is not a browser measurement.
+- Shows the HTTP exchange in order: OPTIONS when required, the actual request, the response, and JavaScript readability. A rejected preflight stops before the actual request.
+- Evaluates whether an origin-dependent cacheable response includes `Vary: Origin`, separately from the preflight cache.
+- Separates CORS permission from cookie transmission conditions such as SameSite, Secure, and third-party-cookie policy. CORS success does not prove that a cookie was sent.
 - Creates versioned fragment share links from safe simulator conditions and automatically restores the same result.
 - Keeps only safe simulator inputs, the selected tab, and disclosure state in same-tab `sessionStorage` during a language switch.
 
@@ -92,10 +95,11 @@ The simulator is an educational model, not a scanner or proof of server-side beh
 | Simple GET | No preflight, followed by the response's ACAO check |
 | JSON POST | `Content-Type: application/json` triggers OPTIONS |
 | Authorization | Explicit ACAH permission is required; `ACAH: *` does not match Authorization |
-| Credentialed request | Exact ACAO and case-sensitive `ACAC: true` are required |
+| Credentialed request | Compare exact ACAO and `ACAC: true` with the separate cookie transmission conditions |
 | CSP-restricted URL | The request is stopped before CORS is evaluated |
 | ACEH wildcard | Compare readable response headers with and without credentials |
 | Preflight cache | Compare a second request before expiry, at expiry, and after match conditions change |
+| Dynamic ACAO and HTTP caching | Check `Vary: Origin` when a cacheable response changes by request origin |
 
 ---
 
@@ -181,6 +185,8 @@ A credentialed CORS request cannot use `Access-Control-Allow-Origin: *`. It requ
 - It cannot distinguish CORS, DNS, TLS, offline, and other network failures from a Fetch API `TypeError` alone.
 - It does not audit authentication, authorization, or the security of a production server.
 - The preflight cache timeline cannot prove an implementation's cap, early eviction, or actual omission of OPTIONS.
+- CORS permission cannot prove that a cookie was sent. Domain, Path, expiry, stored state, SameSite, Secure, and browser policy require separate evidence.
+- The `Vary: Origin` result evaluates the entered cache assumptions. It does not observe storage or reuse by a CDN, proxy, or browser cache.
 
 Use DevTools and server-side evidence, and test only systems you are authorized to access.
 

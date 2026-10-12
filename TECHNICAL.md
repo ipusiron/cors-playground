@@ -175,9 +175,17 @@ if(nonSafeReqHeaders.length>0){
 
 ACEHの`*`は資格情報なしの場合だけワイルドカードです。資格情報付きでは文字どおり`*`という名前だけに一致します。`Set-Cookie`と`Set-Cookie2`はforbidden response-header nameのため、明示的に列挙しても公開しません。ACEHの構文が無効な場合は、セーフリスト以外を公開しません。
 
-### 2.4 プリフライトキャッシュと共有状態
+### 2.4 HTTP通信フロー、2種類のキャッシュ、Cookie条件
+
+`buildCorsExchange()`は、判定コアの結果から教育用のHTTP通信フローを組み立てます。シンプルリクエストでは本リクエストを送った後にレスポンスの読取可否を判定します。プリフライトが拒否された場合はOPTIONS応答で止まり、本リクエストを送信しません。画面側で判定を作り直さず、`finalDecision()`と同じ結果を表示に使います。
 
 `modelPreflightCache()`は、Max-Ageと2回目の要求時刻を使い、同じ照合条件を仮定した2イベントの時間軸を返します。Fetch標準のキャッシュキーにはnetwork partition key、origin、URL、credentials、method、header nameが関係します。実装による上限や期限前の削除があるため、この関数はOPTIONSの実測結果を表しません。
+
+`assessVaryOrigin()`は、オリジンごとにACAOを変えるキャッシュ可能なHTTPレスポンスについて`Vary: Origin`を確認します。これは通常のHTTPレスポンスキャッシュの評価であり、`Access-Control-Max-Age`によるプリフライトキャッシュとは別です。CDN、プロキシー、ブラウザーの実キャッシュを観測しません。
+
+`explainCredentialConditions()`は、Fetchのcredentials設定、CORS応答、same-site/cross-site、CookieのSameSite・Secure、第三者Cookie方針を別々に示します。CORS許可はJavaScriptによるレスポンス読取の条件であり、Cookie送信の証明ではありません。Domain、Path、有効期限、保存状態など、画面が検査しない条件も結果に残します。
+
+### 2.5 共有状態
 
 共有リンクは`#cors=v1.<base64url(JSON)>`形式です。`normalizeScenario()`が許可キー、型、列挙値、長さ、数値範囲を検査し、未知キーを拒否します。共有と言語切替の一時保存は同じ安全なシナリオだけを使用し、Live FetchとpostMessageの値・本文・ログを含めません。動的な復元結果は既存の描画関数を呼び直して生成します。
 
