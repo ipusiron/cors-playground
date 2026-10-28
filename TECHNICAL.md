@@ -28,6 +28,7 @@ cors-playground/
 ├─ js/
 │  ├─ cors-core.js        # DOM非依存のCORS判定コア
 │  ├─ messages.js         # 動的文言の日英辞書
+│  ├─ theme-init.js       # 最初の描画の前に保存したテーマを付ける（<head>で同期読み込み）
 │  ├─ language-init.js    # 初期言語の決定
 │  ├─ app.js              # タブ・テーマ・開閉制御
 │  ├─ cors-simulator.js   # 判定画面

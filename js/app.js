@@ -76,7 +76,7 @@ globalThis.CorsPendingSessionState = pendingSessionState;
  *
  * @description
  * - ユーザーの選択をlocalStorageに保存
- * - ページリロード時に前回の設定を復元
+ * - ページリロード時の復元は js/theme-init.js が <head> で行う（最初の描画に間に合わせるため）
  * - CSS変数(:root.dark)と連携してテーマを切り替え
  *
  * @storage
@@ -106,14 +106,9 @@ globalThis.CorsPendingSessionState = pendingSessionState;
     }
   }
 
-  // localStorageが拒否される環境でも、デフォルトのlightで動作を続ける
-  let stored = 'light';
-  try {
-    stored = localStorage.getItem(key) || 'light';
-  } catch (error) {
-    stored = 'light';
-  }
-  apply(stored);
+  // 保存したテーマは js/theme-init.js が <head> で <html> に付けている。
+  // ここではその状態に合わせてアイコンをそろえるだけ
+  apply(root.classList.contains('dark') ? 'dark' : 'light');
 
   // テーマ切替ボタンのクリックイベント
   btn.addEventListener('click', ()=>{
