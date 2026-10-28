@@ -96,6 +96,8 @@ The application is organized into four tabs, providing a progressive learning pa
 
 - Tab switching logic for all four tabs
 - Theme toggle (light/dark mode) with localStorage persistence (key: `'corspg-theme'`)
+  - The button is a toggle named "ダークモード" / "Dark mode" (fixed `aria-label`); `app.js` sets `aria-pressed`
+    to `true` while dark, so screen readers announce the current state. Do not change the label with the state
   - The saved theme is applied by `js/theme-init.js`, loaded synchronously in `<head>` after the stylesheet on both
     language pages, so the first paint already has `:root.dark`. Saved `'dark'` means dark; anything else is light
     (the OS setting is not consulted). `app.js` only syncs the icon, toggles and saves
