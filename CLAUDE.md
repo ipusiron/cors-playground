@@ -96,6 +96,9 @@ The application is organized into four tabs, providing a progressive learning pa
 
 - Tab switching logic for all four tabs
 - Theme toggle (light/dark mode) with localStorage persistence (key: `'corspg-theme'`)
+  - The saved theme is applied by `js/theme-init.js`, loaded synchronously in `<head>` after the stylesheet on both
+    language pages, so the first paint already has `:root.dark`. Saved `'dark'` means dark; anything else is light
+    (the OS setting is not consulted). `app.js` only syncs the icon, toggles and saves
 - Accordion toggle for collapsible content sections
 - Help panel toggle for contextual explanations
 - Language switching temporarily preserves the selected tab, disclosure state, and safe simulator scenario in sessionStorage
@@ -185,6 +188,7 @@ cors-playground/
 ├── js/
 │   ├── cors-core.js       # Dependency-free CORS decision core
 │   ├── messages.js        # Japanese and English dynamic messages
+│   ├── theme-init.js      # Applies the saved theme to <html> before the first paint (loaded in <head>)
 │   ├── language-init.js   # Initial language selection
 │   ├── app.js             # Tab switching, theme toggle, accordion control
 │   ├── sop-lab.js         # Parent-side SOP and postMessage experiments

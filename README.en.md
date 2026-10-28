@@ -203,6 +203,7 @@ cors-playground/
 ├── js/
 │   ├── cors-core.js                 # Dependency-free decision core
 │   ├── messages.js                  # Dynamic Japanese and English messages
+│   ├── theme-init.js                # Applies the saved theme before the first paint
 │   ├── language-init.js             # Initial language selection
 │   ├── app.js                       # Tabs, theme, and disclosures
 │   ├── sop-lab.js                   # iframe and postMessage lab

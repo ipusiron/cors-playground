@@ -400,6 +400,7 @@ cors-playground/
 │  ├─ app.js              # タブ切替・テーマ制御
 │  ├─ cors-core.js        # 仕様判定の共通コア
 │  ├─ messages.js         # 日英の動的メッセージ
+│  ├─ theme-init.js       # 最初の描画の前に保存したテーマを付ける
 │  ├─ language-init.js    # 初期言語の決定
 │  ├─ sop-lab.js          # SOP実験（iframe + postMessage）
 │  ├─ cors-simulator.js   # シミュレーター画面
