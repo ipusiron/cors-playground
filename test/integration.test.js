@@ -98,6 +98,15 @@ test('interactive disclosure and dynamic results expose accessible state', () =>
   assert.match(read('js/app.js'), /aria-expanded/);
 });
 
+test('theme toggle has a fixed name and exposes the dark state with aria-pressed', () => {
+  for (const [page, name] of [['index.html', 'ダークモード'], ['index.en.html', 'Dark mode']]) {
+    assert.match(read(page), new RegExp(`<button id="themeToggle"[^>]*aria-label="${name}" aria-pressed="false">`, 'u'), page);
+  }
+  const app = read('js/app.js');
+  assert.match(app, /btn\.setAttribute\('aria-pressed', String\(mode === 'dark'\)\)/);
+  assert.doesNotMatch(app, /btn\.setAttribute\('aria-label'/);
+});
+
 test('SOP lab frames use restrictive CSPs', () => {
   for (const file of ['labs/iframe-safe.html', 'labs/iframe-safe.en.html']) {
     const html = read(file);

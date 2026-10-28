@@ -104,6 +104,8 @@ globalThis.CorsPendingSessionState = pendingSessionState;
       root.classList.remove('dark');
       btn.textContent = '🌙'; // ライトモード時は月アイコン（ダークモードへ切替を示唆）
     }
+    // 名前は「ダークモード」で固定し、いまダークかどうかを押下状態で読み上げに伝える
+    btn.setAttribute('aria-pressed', String(mode === 'dark'));
   }
 
   // 保存したテーマは js/theme-init.js が <head> で <html> に付けている。
