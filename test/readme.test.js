@@ -121,6 +121,39 @@ function coreSafelistBytes(name, value) {
   return 0;
 }
 
+// The largest value size the core still safelists for one header.
+function coreValueLimit(name) {
+  let size = 0;
+  while (size < 4096 && core.isSafelistedHeader(name, 'a'.repeat(size + 1))) size += 1;
+  return size;
+}
+
+// The simulator's JSON preset: the button label on each page, and whether the request it sets needs a
+// preflight. The request is built as doSimulate builds it: header names with empty values, then Content-Type.
+function jsonPreset() {
+  const handler = read('js/cors-simulator.js')
+    .match(/Q\('btnSimPresetJSON'\)\.addEventListener\('click', \(\)=>\{([\s\S]*?)\n\}\);/);
+  assert.ok(handler, 'missing the btnSimPresetJSON handler');
+  const value = (id) => {
+    const match = handler[1].match(new RegExp(`Q\\('${id}'\\)\\.value = '([^']*)';`));
+    assert.ok(match, `the JSON preset does not set ${id}`);
+    return match[1];
+  };
+  const headers = value('simHeaders').split(',').map((name) => name.trim()).filter(Boolean)
+    .map((name) => ({ name, value: '' }));
+  if (value('simContentType')) headers.push({ name: 'Content-Type', value: value('simContentType') });
+  const label = (page) => {
+    const match = read(page).match(/<button id="btnSimPresetJSON"[^>]*>([^<]+)<\/button>/);
+    assert.ok(match, `${page}: missing the btnSimPresetJSON button`);
+    return match[1].trim();
+  };
+  return {
+    preflight: core.needsPreflight(value('simMethod'), headers),
+    jaLabel: label('index.html'),
+    enLabel: label('index.en.html'),
+  };
+}
+
 test('both READMEs open the use-case section with three uses specific to this tool', () => {
   const jaItems = jaUses();
   const enItems = enUses();
@@ -142,9 +175,12 @@ test('numbers in the uses specific to this tool are recomputed from the core in 
   const [enCache, enRange, enLocale] = enUses();
   const has = (item, texts) => texts.forEach((text) => assert.ok(item.includes(text), text));
 
-  // 1. Boundary values of the preflight cache model: Max-Age 600, a blank Max-Age, and 0.
+  // 1. Boundary values of the preflight cache model: Max-Age 600, a blank Max-Age, and 0,
+  // for the request the JSON preset sets.
+  const preset = jsonPreset();
+  assert.equal(preset.preflight, true);
   const second = (maxAge, after) => core.modelPreflightCache({
-    preflightRequired: true, maxAge, secondRequestAfter: after,
+    preflightRequired: preset.preflight, maxAge, secondRequestAfter: after,
   });
   let lastReuse = -1;
   for (let after = 0; after <= 700; after += 1) {
@@ -157,12 +193,14 @@ test('numbers in the uses specific to this tool are recomputed from the core in 
   assert.equal(blank.maxAgeDefaulted, true);
   assert.equal(second('0', 0).events[1].reason, 'expired');
   has(jaCache, [
+    `「${preset.jaLabel}」（プリフライトあり）`,
     'Access-Control-Max-Ageを600にすると', `${lastReuse}秒後なら再利用`, `${firstExpiry}秒ちょうどなら期限切れ`,
     `空欄にすると${blank.maxAge}秒として扱い`, '0にすると0秒後でも再利用しない',
   ]);
   has(enCache, [
+    `"${preset.enLabel}" preset`,
     'Access-Control-Max-Age 600', `${lastReuse} seconds later reuses the cache`,
-    `exactly ${firstExpiry} seconds later has expired`, `treated as ${blank.maxAge} seconds`,
+    `for one exactly ${firstExpiry} seconds later the cache has expired`, `treated as ${blank.maxAge} seconds`,
     '0 allows no reuse even 0 seconds later',
   ]);
 
@@ -188,16 +226,27 @@ test('numbers in the uses specific to this tool are recomputed from the core in 
   ]);
 
   // 3. Language tags separated by hyphens, and locale names separated by underscores.
+  // Replacing only `_` with `-` removes the preflight, so `_` alone is the cause.
   const tags = 'ja,en-US;q=0.9,en;q=0.8';
+  const locales = ['ja_JP.UTF-8', 'ja_JP'];
   for (const name of ['Accept-Language', 'Content-Language']) {
     assert.equal(core.needsPreflight('GET', [{ name, value: tags }]), false);
     assert.equal(core.needsPreflight('GET', [{ name, value: 'ja-JP' }]), false);
-    assert.equal(core.needsPreflight('GET', [{ name, value: 'ja_JP.UTF-8' }]), true);
-    assert.equal(core.needsPreflight('GET', [{ name, value: 'ja_JP' }]), true);
+    for (const locale of locales) {
+      assert.equal(core.needsPreflight('GET', [{ name, value: locale }]), true, locale);
+      assert.equal(core.needsPreflight('GET', [{ name, value: locale.replaceAll('_', '-') }]), false, locale);
+    }
   }
   const bytes = coreSafelistBytes('Accept-Language', tags);
+  const limit = coreValueLimit('Accept-Language');
+  assert.equal(coreValueLimit('Content-Language'), limit);
+  assert.ok(bytes <= limit);
   has(jaLocale, [
-    `\`${tags}\`（${bytes}バイト）はプリフライトなし`, '`ja_JP.UTF-8`', '`ja_JP`は', 'ためプリフライトになる',
+    `\`${tags}\`（${bytes}バイトで、1つの値の上限${limit}バイトに収まる）はプリフライトなし`,
+    '`ja_JP.UTF-8`', '`ja_JP`は', '`_`がセーフリストで許される文字にないためプリフライトになる',
   ]);
-  has(enLocale, [`\`${tags}\` (${bytes} bytes) goes without a preflight`, '`ja_JP.UTF-8`', '`ja_JP` need one']);
+  has(enLocale, [
+    `\`${tags}\` (${bytes} bytes, within the ${limit}-byte limit for one value) goes without a preflight`,
+    '`ja_JP.UTF-8`', '`ja_JP` need one', 'because `_` is not among the characters the safelist allows',
+  ]);
 });
