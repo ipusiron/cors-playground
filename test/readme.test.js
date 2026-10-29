@@ -87,3 +87,117 @@ test('all local Markdown links resolve', () => {
     }
   }
 });
+
+// The label is plain text, not a heading, so the heading-level test above keeps its count.
+function useCaseItems(markdown, sectionHeading, label) {
+  const text = markdown.replace(/\r\n/g, '\n');
+  const start = text.indexOf(`\n${sectionHeading}\n`);
+  assert.ok(start >= 0, `missing ${sectionHeading}`);
+  const body = text.slice(start + sectionHeading.length + 2);
+  const lead = body.slice(0, body.search(/^#{2,3} /m)).split('\n').filter((line) => line.trim());
+  assert.equal(lead[0], label, `${sectionHeading} must start with "${label}"`);
+  const items = [];
+  for (const line of lead.slice(1)) {
+    if (!line.startsWith('- ')) break;
+    items.push(line.slice(2));
+  }
+  return items;
+}
+
+const jaUses = () => useCaseItems(ja, '## 🎓 活用シナリオ', 'このツールならではの使い方');
+const enUses = () => useCaseItems(en, '## 🎓 Use cases', 'Ways of using this tool in particular');
+
+// Size of a safelisted value as the core counts it toward the 1,024-byte total:
+// add Accept values as padding until the total first exceeds 1,024 bytes.
+function coreSafelistBytes(name, value) {
+  assert.deepEqual(core.unsafeRequestHeaderNames([{ name, value }]), []);
+  for (let padding = 0; padding <= 1024; padding += 1) {
+    const entries = [{ name, value }];
+    for (let left = padding; left > 0; left -= 128) {
+      entries.push({ name: 'Accept', value: 'a'.repeat(Math.min(128, left)) });
+    }
+    if (core.unsafeRequestHeaderNames(entries).length) return 1025 - padding;
+  }
+  return 0;
+}
+
+test('both READMEs open the use-case section with three uses specific to this tool', () => {
+  const jaItems = jaUses();
+  const enItems = enUses();
+  assert.equal(jaItems.length, 3);
+  assert.equal(enItems.length, jaItems.length);
+  for (const item of jaItems) {
+    assert.ok(item.endsWith('。'), item);
+    assert.doesNotMatch(item, /分かる|無い|効く|走る|照合|既定|\*\*/u);
+    assert.doesNotMatch(item, /[ぁ-んァ-ヶ一-龠] [A-Za-z0-9`]|[A-Za-z0-9`] [ぁ-んァ-ヶ一-龠]/u);
+  }
+  for (const item of enItems) {
+    assert.ok(item.endsWith('.'), item);
+    assert.doesNotMatch(item, /\*\*|[ぁ-んァ-ヶ一-龠]/u);
+  }
+});
+
+test('numbers in the uses specific to this tool are recomputed from the core in both languages', () => {
+  const [jaCache, jaRange, jaLocale] = jaUses();
+  const [enCache, enRange, enLocale] = enUses();
+  const has = (item, texts) => texts.forEach((text) => assert.ok(item.includes(text), text));
+
+  // 1. Boundary values of the preflight cache model: Max-Age 600, a blank Max-Age, and 0.
+  const second = (maxAge, after) => core.modelPreflightCache({
+    preflightRequired: true, maxAge, secondRequestAfter: after,
+  });
+  let lastReuse = -1;
+  for (let after = 0; after <= 700; after += 1) {
+    if (second('600', after).reused) lastReuse = after;
+  }
+  const firstExpiry = lastReuse + 1;
+  assert.equal(second('600', lastReuse).events[1].reason, 'cacheHit');
+  assert.equal(second('600', firstExpiry).events[1].reason, 'expired');
+  const blank = second('', 0);
+  assert.equal(blank.maxAgeDefaulted, true);
+  assert.equal(second('0', 0).events[1].reason, 'expired');
+  has(jaCache, [
+    'Access-Control-Max-Ageを600にすると', `${lastReuse}秒後なら再利用`, `${firstExpiry}秒ちょうどなら期限切れ`,
+    `空欄にすると${blank.maxAge}秒として扱い`, '0にすると0秒後でも再利用しない',
+  ]);
+  has(enCache, [
+    'Access-Control-Max-Age 600', `${lastReuse} seconds later reuses the cache`,
+    `exactly ${firstExpiry} seconds later has expired`, `treated as ${blank.maxAge} seconds`,
+    '0 allows no reuse even 0 seconds later',
+  ]);
+
+  // 2. Range forms, and the response headers JavaScript can read without ACEH.
+  const range = (value) => core.needsPreflight('GET', [{ name: 'Range', value }]);
+  assert.equal(range('bytes=-65536'), range('bytes=0-99,200-299'));
+  assert.notEqual(range('bytes=0-16383'), range('bytes=-65536'));
+  const names = 'Content-Type, Content-Length, Content-Range, ETag';
+  const hidden = core.responseHeaderExposure({ credentials: false, responseHeaders: names, exposeHeaders: '' });
+  const listed = core.responseHeaderExposure({ credentials: false, responseHeaders: names, exposeHeaders: 'Content-Range' });
+  const total = hidden.readable.length + hidden.unreadable.length;
+  assert.deepEqual(hidden.unreadable.map((entry) => entry.name), ['Content-Range', 'ETag']);
+  assert.ok(listed.readable.some((entry) => entry.name === 'Content-Range' && entry.reason === 'explicit'));
+  has(jaRange, [
+    '`Range: bytes=0-16383`', `\`preflight_estimated\`は${range('bytes=0-16383')}`, '`bytes=-65536`と',
+    `\`bytes=0-99,200-299\`は${range('bytes=0-99,200-299')}`, `\`${names}\``,
+    `${total}つのうち${hidden.readable.length}つ`, '`Content-Range`はACEHに書くまで読めない',
+  ]);
+  has(enRange, [
+    '`Range: bytes=0-16383`', `\`preflight_estimated\` ${range('bytes=0-16383')}`, '`bytes=-65536` or',
+    `\`bytes=0-99,200-299\` makes it ${range('bytes=0-99,200-299')}`, `\`${names}\``,
+    `${hidden.readable.length} of the ${total}`, 'stays unreadable until it is listed in ACEH',
+  ]);
+
+  // 3. Language tags separated by hyphens, and locale names separated by underscores.
+  const tags = 'ja,en-US;q=0.9,en;q=0.8';
+  for (const name of ['Accept-Language', 'Content-Language']) {
+    assert.equal(core.needsPreflight('GET', [{ name, value: tags }]), false);
+    assert.equal(core.needsPreflight('GET', [{ name, value: 'ja-JP' }]), false);
+    assert.equal(core.needsPreflight('GET', [{ name, value: 'ja_JP.UTF-8' }]), true);
+    assert.equal(core.needsPreflight('GET', [{ name, value: 'ja_JP' }]), true);
+  }
+  const bytes = coreSafelistBytes('Accept-Language', tags);
+  has(jaLocale, [
+    `\`${tags}\`（${bytes}バイト）はプリフライトなし`, '`ja_JP.UTF-8`', '`ja_JP`は', 'ためプリフライトになる',
+  ]);
+  has(enLocale, [`\`${tags}\` (${bytes} bytes) goes without a preflight`, '`ja_JP.UTF-8`', '`ja_JP` need one']);
+});
